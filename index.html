@@ -1061,7 +1061,8 @@ const Store = (() => {
       color:       t.color       || DEFAULT_COLOR,
       column:      t.column      || 'todo',
       order:       typeof t.order === 'number' ? t.order : 0,
-      createdAt:   t.createdAt   || new Date().toISOString()
+      createdAt:   t.createdAt   || new Date().toISOString(),
+      completedAt: t.completedAt || null
     };
   }
 
@@ -1121,6 +1122,13 @@ const Store = (() => {
     // 更改所属列
     task.column = targetCol;
 
+    // Stamp completedAt when moving to completed, clear when moving out
+    if (targetCol === 'completed' && sourceCol !== 'completed') {
+      task.completedAt = new Date().toISOString();
+    } else if (targetCol !== 'completed') {
+      task.completedAt = null;
+    }
+
     // 获取目标列的任务列表（排除当前任务）
     let targetTasks = _tasks
       .filter(t => t.column === targetCol && t.id !== taskId)
@@ -1157,7 +1165,21 @@ const Store = (() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(_tasks));
   }
 
-  return { init, getAll, getByColumn, getById, getActiveTasks, add, update, remove, move, flushSave };
+  /** 删除 7 天前完成的任务，返回被删除的数量 */
+  function purgeExpired() {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const before = _tasks.length;
+    _tasks = _tasks.filter(t => {
+      if (t.column !== 'completed') return true;
+      if (!t.completedAt) return true;
+      return new Date(t.completedAt).getTime() > cutoff;
+    });
+    const removed = before - _tasks.length;
+    if (removed > 0) scheduleSave();
+    return removed;
+  }
+
+  return { init, getAll, getByColumn, getById, getActiveTasks, add, update, remove, move, purgeExpired, flushSave };
 })();
 
 // ============================================================
@@ -2095,6 +2117,12 @@ function initApp() {
   // 1. 初始化数据
   Store.init();
 
+  // 清理过期的已完成任务（7 天前）
+  const purged = Store.purgeExpired();
+  if (purged > 0) {
+    console.log(`已自动清理 ${purged} 个过期任务`);
+  }
+
   // 2. 初始化调色板
   Modal.initColorPalette();
 
@@ -2199,6 +2227,15 @@ function initApp() {
       Timer.updateUI();
     }
   });
+
+  // 每 60 秒检查一次过期任务
+  setInterval(() => {
+    const removed = Store.purgeExpired();
+    if (removed > 0) {
+      Kanban.renderAll();
+      renderTimerTaskList();
+    }
+  }, 60000);
 
 }
 
