@@ -1067,7 +1067,6 @@ html, body {
 }
 
 /* 四象限视图中隐藏原来的卡片列表和添加按钮 */
-.kanban-column.quadrant-mode > .column-cards,
 .kanban-column.quadrant-mode > .column-add-btn {
   display: none;
 }
@@ -2244,13 +2243,24 @@ const Kanban = (() => {
         card.draggable = true;
         card.addEventListener('dragstart', (e) => onDragStart(e, taskId));
         card.addEventListener('dragend', onDragEnd);
+      } else {
+        card.draggable = false;
       }
 
+      // 触控事件（长按拖拽）
+      card.addEventListener('touchstart', (e) => onTouchStart(e, taskId, card));
+
+      // 点击卡片 → 打开编辑
       card.addEventListener('click', (e) => {
         if (_justDragged) return;
         if (Timer.isTaskLocked(taskId)) return;
         Modal.openEdit(taskId);
       });
+
+      // 桌面端拖入卡片时的位置指示
+      card.addEventListener('dragover', (e) => onCardDragOver(e, card, taskId));
+      card.addEventListener('dragleave', (e) => onCardDragLeave(e, card));
+      card.addEventListener('drop', (e) => onCardDrop(e, card, taskId));
     });
   }
 
@@ -2298,7 +2308,6 @@ const Modal = (() => {
       });
     } else {
       group.style.display = 'none';
-      _selectedQuadrant = null;
     }
   }
 
