@@ -788,6 +788,49 @@ html, body {
   transform: scale(1.1);
 }
 
+/* 四象限选择器 */
+.quadrant-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.quadrant-btn {
+  padding: 12px 10px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  min-height: 44px;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.quadrant-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* eisenhower 四象限颜色 */
+.quadrant-q1 { border-left: 4px solid #EF4444; }  /* 重要且紧急 — 红 */
+.quadrant-q2 { border-left: 4px solid #3B82F6; }  /* 重要不紧急 — 蓝 */
+.quadrant-q3 { border-left: 4px solid #F97316; }  /* 不重要紧急 — 橙 */
+.quadrant-q4 { border-left: 4px solid #22C55E; }  /* 不重要不紧急 — 绿 */
+
+.quadrant-btn.selected {
+  border-color: var(--color-primary);
+  background: rgba(59,130,246,0.08);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* 深色主题适配 */
+[data-theme="dark"] .quadrant-btn.selected {
+  background: rgba(96,165,250,0.15);
+}
+
 /* 模态框按钮 */
 .modal-actions {
   display: flex;
@@ -918,6 +961,116 @@ html, body {
 }
 
 .task-card { animation: fadeIn 0.2s ease; }
+
+/* 四象限视图切换按钮 */
+.quadrant-toggle-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  transition: background var(--transition);
+  flex-shrink: 0;
+}
+
+.quadrant-toggle-btn:hover {
+  background: var(--color-border);
+}
+
+/* 默认（列表视图）显示网格图标，四象限视图显示列表图标 */
+.quadrant-toggle-btn .qt-icon-grid { display: inline; }
+.quadrant-toggle-btn .qt-icon-list { display: none; }
+.quadrant-toggle-btn.quadrant-active .qt-icon-grid { display: none; }
+.quadrant-toggle-btn.quadrant-active .qt-icon-list { display: inline; }
+
+/* 四象限 2×2 网格 */
+.quadrant-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+  padding: 8px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.quadrant-section {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 80px;
+}
+
+.quadrant-section-header {
+  padding: 6px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.qs-q1 .quadrant-section-header { background: #EF4444; }
+.qs-q2 .quadrant-section-header { background: #3B82F6; }
+.qs-q3 .quadrant-section-header { background: #F97316; }
+.qs-q4 .quadrant-section-header { background: #22C55E; }
+
+.quadrant-section-cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--color-bg);
+}
+
+/* 四象限内卡片缩小 */
+.quadrant-section .task-card {
+  padding: 6px 8px;
+  font-size: 0.8rem;
+}
+
+.quadrant-section .task-card .card-title {
+  font-size: 0.78rem;
+}
+
+.quadrant-section .task-card .color-strip {
+  width: 3px;
+}
+
+/* 四象限空状态 */
+.quadrant-section-empty {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 12px 4px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 桌面端：四象限模式下 todo 列需要更高 */
+@media (min-width: 768px) {
+  .kanban-column.quadrant-mode .quadrant-grid {
+    min-height: 400px;
+  }
+}
+
+/* 四象限视图中隐藏原来的卡片列表和添加按钮 */
+.kanban-column.quadrant-mode > .column-cards,
+.kanban-column.quadrant-mode > .column-add-btn {
+  display: none;
+}
 </style>
 </head>
 <body>
@@ -951,7 +1104,13 @@ html, body {
     <section class="kanban-column active" id="column-todo" data-column="todo">
       <div class="column-header">
         <h2>待办</h2>
-        <span class="column-count" id="countTodo">0</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="quadrant-toggle-btn" id="quadrantToggleBtn" title="切换四象限视图">
+            <span class="qt-icon-list">☰</span>
+            <span class="qt-icon-grid">⊞</span>
+          </button>
+          <span class="column-count" id="countTodo">0</span>
+        </div>
       </div>
       <div class="column-cards" id="cardsTodo"></div>
       <button class="column-add-btn" data-column="todo">+ 添加任务</button>
@@ -999,6 +1158,23 @@ html, body {
       <div class="form-group">
         <label>颜色标签</label>
         <div class="color-palette" id="colorPalette"></div>
+      </div>
+      <div class="form-group" id="quadrantGroup" style="display:none;">
+        <label>四象限分类</label>
+        <div class="quadrant-selector" id="quadrantSelector">
+          <button type="button" class="quadrant-btn quadrant-q1" data-quadrant="q1" title="重要且紧急">
+            重要且紧急
+          </button>
+          <button type="button" class="quadrant-btn quadrant-q2" data-quadrant="q2" title="重要不紧急">
+            重要不紧急
+          </button>
+          <button type="button" class="quadrant-btn quadrant-q3" data-quadrant="q3" title="不重要但紧急">
+            不重要但紧急
+          </button>
+          <button type="button" class="quadrant-btn quadrant-q4" data-quadrant="q4" title="不重要不紧急">
+            不重要不紧急
+          </button>
+        </div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-cancel" id="cancelTaskBtn">取消</button>
@@ -1131,7 +1307,8 @@ const Store = (() => {
       column:      t.column      || 'todo',
       order:       typeof t.order === 'number' ? t.order : 0,
       createdAt:   t.createdAt   || new Date().toISOString(),
-      completedAt: t.completedAt || null
+      completedAt: t.completedAt || null,
+      quadrant:    t.quadrant    || null   // 'q1'|'q2'|'q3'|'q4'|null
     };
   }
 
@@ -1615,10 +1792,17 @@ const Kanban = (() => {
   let _touchMoved = false;
   let _startElement = null;
   let _justDragged = false; // 防止拖拽结束后触发 click 事件
+  let _quadrantMode = false; // 四象限视图开关
 
   /** 渲染全部列 */
   function renderAll() {
-    COLUMNS.forEach(col => renderColumn(col.key));
+    if (_quadrantMode) {
+      renderQuadrantView();
+    } else {
+      renderColumn('todo');
+    }
+    renderColumn('doing');
+    renderColumn('completed');
     updateAllCounts();
   }
 
@@ -1971,7 +2155,106 @@ const Kanban = (() => {
     document.addEventListener('touchend', onTouchEnd);
   }
 
-  return { renderAll, renderColumn, updateAllCounts, setupColumnDropZones, setupDocumentTouch };
+  /** 切换四象限视图 */
+  function toggleQuadrantView() {
+    _quadrantMode = !_quadrantMode;
+    const colEl = document.getElementById('column-todo');
+    const toggleBtn = document.getElementById('quadrantToggleBtn');
+
+    if (_quadrantMode) {
+      colEl.classList.add('quadrant-mode');
+      toggleBtn.classList.add('quadrant-active');
+      renderQuadrantView();
+    } else {
+      colEl.classList.remove('quadrant-mode');
+      toggleBtn.classList.remove('quadrant-active');
+      renderColumn('todo');
+      updateColumnCount('todo');
+    }
+  }
+
+  /** 判断是否处于四象限模式 */
+  function isQuadrantMode() { return _quadrantMode; }
+
+  /** 渲染四象限视图 */
+  function renderQuadrantView() {
+    const cardsEl = document.getElementById('cardsTodo');
+    const tasks = Store.getByColumn('todo');
+
+    const quadrants = {
+      q1: { label: '重要且紧急', cls: 'qs-q1', tasks: [] },
+      q2: { label: '重要不紧急', cls: 'qs-q2', tasks: [] },
+      q3: { label: '不重要但紧急', cls: 'qs-q3', tasks: [] },
+      q4: { label: '不重要不紧急', cls: 'qs-q4', tasks: [] }
+    };
+
+    // 分配任务到象限，未分类的放入 q1 作为默认
+    tasks.forEach(t => {
+      const q = t.quadrant && quadrants[t.quadrant] ? t.quadrant : 'q1';
+      quadrants[q].tasks.push(t);
+    });
+
+    let html = '<div class="quadrant-grid">';
+    for (const [key, q] of Object.entries(quadrants)) {
+      html += `<div class="quadrant-section ${q.cls}" data-quadrant="${key}">`;
+      html += `<div class="quadrant-section-header">${q.label} (${q.tasks.length})</div>`;
+      html += '<div class="quadrant-section-cards">';
+      if (q.tasks.length === 0) {
+        html += '<div class="quadrant-section-empty">拖放任务至此</div>';
+      } else {
+        q.tasks.forEach(t => {
+          const descHtml = t.description
+            ? `<div class="card-desc" title="${escapeHtml(t.description)}">${escapeHtml(t.description)}</div>`
+            : '';
+          html += `
+            <div class="task-card" data-task-id="${t.id}" data-column="${t.column}" data-quadrant="${t.quadrant || ''}">
+              <div class="color-strip" style="background:${t.color};"></div>
+              <div class="card-content">
+                <div class="card-title" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</div>
+                ${descHtml}
+              </div>
+              <div class="focus-badge">🍅 聚焦中</div>
+            </div>`;
+        });
+      }
+      html += '</div></div>';
+    }
+    html += '</div>';
+
+    cardsEl.innerHTML = html;
+
+    // Bind events to quadrant cards
+    bindQuadrantCardEvents();
+    updateColumnCount('todo');
+  }
+
+  /** 为四象限视图卡片绑定事件 */
+  function bindQuadrantCardEvents() {
+    const cardsEl = document.getElementById('cardsTodo');
+    cardsEl.querySelectorAll('.task-card').forEach(card => {
+      const taskId = card.dataset.taskId;
+      const task = Store.getById(taskId);
+      if (!task) return;
+
+      const isLocked = Timer.isTaskLocked(taskId);
+      card.classList.toggle('focused', Timer.getState() !== 'idle' && taskId === Timer.getTaskId());
+      card.classList.toggle('locked', isLocked);
+
+      if (!isLocked) {
+        card.draggable = true;
+        card.addEventListener('dragstart', (e) => onDragStart(e, taskId));
+        card.addEventListener('dragend', onDragEnd);
+      }
+
+      card.addEventListener('click', (e) => {
+        if (_justDragged) return;
+        if (Timer.isTaskLocked(taskId)) return;
+        Modal.openEdit(taskId);
+      });
+    });
+  }
+
+  return { renderAll, renderColumn, renderQuadrantView, toggleQuadrantView, isQuadrantMode, updateAllCounts, setupColumnDropZones, setupDocumentTouch };
 })();
 
 // ============================================================
@@ -1982,6 +2265,7 @@ const Modal = (() => {
   let _editingTaskId = null;
   /** 当前选择的颜色 */
   let _selectedColor = DEFAULT_COLOR;
+  let _selectedQuadrant = null;
 
   /** 初始化调色板 */
   function initColorPalette() {
@@ -2001,6 +2285,34 @@ const Modal = (() => {
     });
   }
 
+  /** 初始化四象限选择器 */
+  function initQuadrantSelector(taskQuadrant, isTodoColumn) {
+    const group = document.getElementById('quadrantGroup');
+    const btns = document.querySelectorAll('.quadrant-btn');
+    _selectedQuadrant = taskQuadrant || null;
+
+    if (isTodoColumn) {
+      group.style.display = '';
+      btns.forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.quadrant === _selectedQuadrant);
+      });
+    } else {
+      group.style.display = 'none';
+      _selectedQuadrant = null;
+    }
+  }
+
+  /** 绑定四象限按钮事件 */
+  function setupQuadrantEvents() {
+    document.querySelectorAll('.quadrant-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.quadrant-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        _selectedQuadrant = btn.dataset.quadrant;
+      });
+    });
+  }
+
   /** 打开新建任务模态框 */
   function openCreate(columnKey) {
     _editingTaskId = null;
@@ -2012,6 +2324,7 @@ const Modal = (() => {
     document.getElementById('taskFormDesc').value = '';
     document.getElementById('deleteTaskBtn').style.display = 'none';
     resetColorPaletteSelection();
+    initQuadrantSelector(null, columnKey === 'todo');
     document.getElementById('taskModalBackdrop').classList.add('open');
     document.getElementById('taskFormTitle').focus();
   }
@@ -2032,6 +2345,7 @@ const Modal = (() => {
     document.getElementById('deleteTaskBtn').style.display = '';
 
     resetColorPaletteSelection();
+    initQuadrantSelector(task.quadrant, task.column === 'todo');
     document.getElementById('taskModalBackdrop').classList.add('open');
   }
 
@@ -2065,7 +2379,8 @@ const Modal = (() => {
       Store.update(_editingTaskId, {
         title: title,
         description: desc,
-        color: _selectedColor
+        color: _selectedColor,
+        quadrant: _selectedQuadrant
       });
     } else {
       // 新建任务
@@ -2076,7 +2391,8 @@ const Modal = (() => {
         color: _selectedColor,
         column: columnKey,
         order: 0,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        quadrant: _selectedQuadrant
       });
     }
 
@@ -2135,7 +2451,7 @@ const Modal = (() => {
     backdrop.dataset.taskId = '';
   }
 
-  return { initColorPalette, openCreate, openEdit, closeTask, save, confirmDelete, executeDelete, closeDelete };
+  return { initColorPalette, setupQuadrantEvents, openCreate, openEdit, closeTask, save, confirmDelete, executeDelete, closeDelete };
 })();
 
 // ============================================================
@@ -2198,6 +2514,7 @@ function initApp() {
 
   // 2. 初始化调色板
   Modal.initColorPalette();
+  Modal.setupQuadrantEvents();
 
   // 3. 渲染看板
   Kanban.renderAll();
@@ -2285,6 +2602,11 @@ function initApp() {
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('pomodoro-kanban-theme', next);
+  });
+
+  // 四象限视图切换按钮
+  document.getElementById('quadrantToggleBtn').addEventListener('click', () => {
+    Kanban.toggleQuadrantView();
   });
 
   // 移动端列标签切换
