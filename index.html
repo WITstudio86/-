@@ -1945,7 +1945,7 @@ const Kanban = (() => {
     // Check if dropping within a quadrant section (inter-quadrant move)
     const targetQuadrant = card.closest('.quadrant-section')?.dataset.quadrant;
     if (targetQuadrant && task.column === 'todo') {
-      Store.update(taskId, { quadrant: targetQuadrant });
+      Store.update(taskId, { quadrant: targetQuadrant, color: getQuadrantColor(targetQuadrant) });
       renderAll();
       return;
     }
@@ -2137,7 +2137,7 @@ const Kanban = (() => {
     if (quadrantEl && task.column === 'todo') {
       const quadrantKey = quadrantEl.dataset.quadrant;
       if (quadrantKey) {
-        Store.update(taskId, { quadrant: quadrantKey });
+        Store.update(taskId, { quadrant: quadrantKey, color: getQuadrantColor(quadrantKey) });
         renderAll();
         return;
       }
@@ -2332,7 +2332,7 @@ const Kanban = (() => {
         if (!task || Timer.isTaskLocked(taskId)) return;
         const targetQuadrant = section.dataset.quadrant;
         if (targetQuadrant && task.column === 'todo') {
-          Store.update(taskId, { quadrant: targetQuadrant });
+          Store.update(taskId, { quadrant: targetQuadrant, color: getQuadrantColor(targetQuadrant) });
           renderAll();
         }
       });
