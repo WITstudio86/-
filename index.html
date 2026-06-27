@@ -1350,7 +1350,12 @@ const Store = (() => {
     task.order = colTasks.length > 0
       ? Math.max(...colTasks.map(t => t.order)) + 1
       : 0;
-    _tasks.push(normalizeTask(task));
+    const normalized = normalizeTask(task);
+    // Stamp completedAt for tasks created directly in the completed column
+    if (normalized.column === 'completed' && !normalized.completedAt) {
+      normalized.completedAt = new Date().toISOString();
+    }
+    _tasks.push(normalized);
     scheduleSave();
   }
 
