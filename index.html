@@ -1030,6 +1030,7 @@ const FOCUS_SECONDS = 25 * 60;   // 25 分钟
 const BREAK_SECONDS = 5 * 60;    // 5 分钟
 const LONG_PRESS_MS = 300;       // 长按触发时间
 const DEBOUNCE_MS = 200;         // localStorage 写入防抖
+let _purgeIntervalId = null;
 const TOUCH_MOVE_THRESHOLD = 10; // 触控移动阈值（超过此值取消长按）
 
 // ============================================================
@@ -2222,6 +2223,7 @@ function initApp() {
   window.addEventListener('storage', (e) => {
     if (e.key === STORAGE_KEY) {
       Store.init();
+      Store.purgeExpired();
       Kanban.renderAll();
       renderTimerTaskList();
       Timer.updateUI();
@@ -2229,7 +2231,8 @@ function initApp() {
   });
 
   // 每 60 秒检查一次过期任务
-  setInterval(() => {
+  clearInterval(_purgeIntervalId);
+  _purgeIntervalId = setInterval(() => {
     const removed = Store.purgeExpired();
     if (removed > 0) {
       Kanban.renderAll();
