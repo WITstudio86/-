@@ -786,30 +786,6 @@ html, body {
   box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
 }
 
-/* 调色板 */
-.color-palette {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.color-swatch {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 3px solid transparent;
-  transition: border-color var(--transition), transform var(--transition);
-  flex-shrink: 0;
-}
-
-.color-swatch:hover { transform: scale(1.1); }
-
-.color-swatch.selected {
-  border-color: var(--color-text);
-  transform: scale(1.1);
-}
-
 /* 四象限选择器 */
 .quadrant-selector {
   display: grid;
@@ -1177,10 +1153,6 @@ html, body {
         <textarea id="taskFormDesc" rows="3" maxlength="500"
                   placeholder="请输入任务描述（可选）"></textarea>
       </div>
-      <div class="form-group">
-        <label>颜色标签</label>
-        <div class="color-palette" id="colorPalette"></div>
-      </div>
       <div class="form-group" id="quadrantGroup" style="display:none;">
         <label>四象限分类</label>
         <div class="quadrant-selector" id="quadrantSelector">
@@ -1285,6 +1257,17 @@ const COLORS = [
   { value: '#9CA3AF', label: '灰' }
 ];
 const DEFAULT_COLOR = '#9CA3AF';
+
+const QUADRANT_COLORS = {
+  q1: '#EF4444',  // 重要且紧急 — 红
+  q2: '#3B82F6',  // 重要不紧急 — 蓝
+  q3: '#F97316',  // 不重要但紧急 — 橙
+  q4: '#22C55E',  // 不重要不紧急 — 绿
+};
+
+function getQuadrantColor(quadrant) {
+  return QUADRANT_COLORS[quadrant] || DEFAULT_COLOR;
+}
 
 const COLUMNS = [
   { key: 'todo',       label: '待办' },
@@ -2365,27 +2348,7 @@ const Kanban = (() => {
 const Modal = (() => {
   /** 当前编辑的任务 ID（null 表示新建） */
   let _editingTaskId = null;
-  /** 当前选择的颜色 */
-  let _selectedColor = DEFAULT_COLOR;
   let _selectedQuadrant = null;
-
-  /** 初始化调色板 */
-  function initColorPalette() {
-    const palette = document.getElementById('colorPalette');
-    palette.innerHTML = COLORS.map(c => `
-      <div class="color-swatch${c.value === _selectedColor ? ' selected' : ''}"
-           style="background:${c.value};" data-color="${c.value}"
-           title="${c.label}"></div>
-    `).join('');
-
-    palette.querySelectorAll('.color-swatch').forEach(swatch => {
-      swatch.addEventListener('click', () => {
-        palette.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
-        swatch.classList.add('selected');
-        _selectedColor = swatch.dataset.color;
-      });
-    });
-  }
 
   /** 初始化四象限选择器 */
   function initQuadrantSelector(taskQuadrant, isTodoColumn) {
@@ -2417,14 +2380,12 @@ const Modal = (() => {
   /** 打开新建任务模态框 */
   function openCreate(columnKey) {
     _editingTaskId = null;
-    _selectedColor = DEFAULT_COLOR;
     document.getElementById('taskModalTitle').textContent = '添加任务';
     document.getElementById('taskFormId').value = '';
     document.getElementById('taskFormColumn').value = columnKey;
     document.getElementById('taskFormTitle').value = '';
     document.getElementById('taskFormDesc').value = '';
     document.getElementById('deleteTaskBtn').style.display = 'none';
-    resetColorPaletteSelection();
     initQuadrantSelector(null, columnKey === 'todo');
     document.getElementById('taskModalBackdrop').classList.add('open');
     document.getElementById('taskFormTitle').focus();
@@ -2435,7 +2396,6 @@ const Modal = (() => {
     const task = Store.getById(taskId);
     if (!task) return;
     _editingTaskId = taskId;
-    _selectedColor = task.color;
     document.getElementById('taskModalTitle').textContent = '编辑任务';
     document.getElementById('taskFormId').value = task.id;
     document.getElementById('taskFormColumn').value = task.column;
@@ -2445,7 +2405,6 @@ const Modal = (() => {
     // 删除按钮始终可见（若任务正被番茄钟锁定，确认时 executeDelete 会自动放弃会话）
     document.getElementById('deleteTaskBtn').style.display = '';
 
-    resetColorPaletteSelection();
     initQuadrantSelector(task.quadrant, task.column === 'todo');
     document.getElementById('taskModalBackdrop').classList.add('open');
   }
@@ -2454,14 +2413,6 @@ const Modal = (() => {
   function closeTask() {
     document.getElementById('taskModalBackdrop').classList.remove('open');
     _editingTaskId = null;
-  }
-
-  /** 重置调色板选中状态 */
-  function resetColorPaletteSelection() {
-    const palette = document.getElementById('colorPalette');
-    palette.querySelectorAll('.color-swatch').forEach(s => {
-      s.classList.toggle('selected', s.dataset.color === _selectedColor);
-    });
   }
 
   /** 保存任务（新建或编辑） */
@@ -2480,7 +2431,7 @@ const Modal = (() => {
       Store.update(_editingTaskId, {
         title: title,
         description: desc,
-        color: _selectedColor,
+        color: getQuadrantColor(_selectedQuadrant),
         quadrant: _selectedQuadrant
       });
     } else {
@@ -2489,7 +2440,7 @@ const Modal = (() => {
         id: crypto.randomUUID(),
         title: title,
         description: desc,
-        color: _selectedColor,
+        color: getQuadrantColor(_selectedQuadrant),
         column: columnKey,
         order: 0,
         createdAt: new Date().toISOString(),
@@ -2552,7 +2503,7 @@ const Modal = (() => {
     backdrop.dataset.taskId = '';
   }
 
-  return { initColorPalette, setupQuadrantEvents, openCreate, openEdit, closeTask, save, confirmDelete, executeDelete, closeDelete };
+  return { setupQuadrantEvents, openCreate, openEdit, closeTask, save, confirmDelete, executeDelete, closeDelete };
 })();
 
 // ============================================================
@@ -2613,8 +2564,7 @@ function initApp() {
     console.log(`已自动清理 ${purged} 个过期任务`);
   }
 
-  // 2. 初始化调色板
-  Modal.initColorPalette();
+  // 2. 初始化四象限选择器
   Modal.setupQuadrantEvents();
 
   // 3. 渲染看板
