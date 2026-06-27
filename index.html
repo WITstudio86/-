@@ -1,0 +1,2211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>番茄看板</title>
+<style>
+/* ============================================================
+   CSS Reset & 变量定义
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --color-bg: #F3F4F6;
+  --color-surface: #FFFFFF;
+  --color-border: #E5E7EB;
+  --color-text: #1F2937;
+  --color-text-secondary: #6B7280;
+  --color-text-muted: #9CA3AF;
+  --color-primary: #3B82F6;
+  --color-danger: #EF4444;
+  --color-focus-badge: #F59E0B;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.12);
+  --shadow-xl: 0 20px 50px rgba(0,0,0,0.18);
+  --transition: 0.2s ease;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--font-family);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ============================================================
+   布局
+   ============================================================ */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.app-header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-header h1 .logo-icon { font-size: 1.5rem; }
+
+/* ============================================================
+   移动端列标签切换
+   ============================================================ */
+.column-tabs {
+  display: none;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 8px 12px;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.column-tab {
+  flex: 1;
+  padding: 10px 8px;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition), color var(--transition);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.column-tab.active {
+  background: var(--color-primary);
+  color: #FFFFFF;
+}
+
+.column-tab .tab-count {
+  background: rgba(255,255,255,0.3);
+  font-size: 0.75rem;
+  padding: 1px 7px;
+  border-radius: 10px;
+  min-width: 22px;
+  text-align: center;
+}
+
+.column-tab.active .tab-count { background: rgba(255,255,255,0.35); }
+
+/* ============================================================
+   看板面板
+   ============================================================ */
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 20px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.kanban-column {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.column-header {
+  padding: 14px 16px 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.column-header h2 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.column-header .column-count {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  padding: 2px 10px;
+  border-radius: 10px;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* 卡片列表 */
+.column-cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 12px 8px;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 空列占位 */
+.column-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  padding: 24px 16px;
+  text-align: center;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  margin: 8px 12px;
+  min-height: 60px;
+  pointer-events: none;
+}
+
+/* 列底部的添加按钮 */
+.column-add-btn {
+  flex-shrink: 0;
+  margin: 8px 12px 12px;
+  padding: 10px;
+  border: 2px dashed var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
+  min-height: 44px;
+}
+
+.column-add-btn:hover,
+.column-add-btn:active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(59,130,246,0.05);
+}
+
+/* ============================================================
+   任务卡片
+   ============================================================ */
+.task-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  cursor: grab;
+  position: relative;
+  transition: box-shadow var(--transition), opacity var(--transition), transform var(--transition);
+  display: flex;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.task-card:active { cursor: grabbing; }
+
+.task-card:hover { box-shadow: var(--shadow); }
+
+/* 颜色条（左侧） */
+.task-card .color-strip {
+  width: 4px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  align-self: stretch;
+}
+
+/* 卡片内容区域 */
+.task-card .card-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-card .card-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+.task-card .card-desc {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 聚焦中标识 */
+.task-card.focused {
+  border-color: var(--color-focus-badge);
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.35);
+  cursor: default;
+}
+
+.task-card .focus-badge {
+  display: none;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--color-focus-badge);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 8px;
+  pointer-events: none;
+  animation: focusPulse 2s ease-in-out infinite;
+}
+
+.task-card.focused .focus-badge { display: block; }
+
+@keyframes focusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* 拖拽中/锁定状态 */
+.task-card.dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+}
+
+.task-card.locked {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.task-card.drag-clone {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0.9;
+  box-shadow: var(--shadow-xl);
+  transform: rotate(2deg);
+  width: 260px;
+}
+
+/* ============================================================
+   列拖拽悬停高亮
+   ============================================================ */
+.kanban-column.drag-over {
+  background: rgba(59,130,246,0.06);
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 2px rgba(59,130,246,0.2);
+}
+
+/* 卡片间的拖拽指示线 */
+.task-card.drop-before::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 1px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.task-card.drop-after::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 1px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* ============================================================
+   番茄计时器浮动按钮
+   ============================================================ */
+.timer-toggle-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  transition: background var(--transition), transform var(--transition), width var(--transition), border-radius var(--transition);
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.timer-toggle-btn:hover,
+.timer-toggle-btn:active {
+  background: #2563EB;
+  transform: scale(1.05);
+}
+
+/* 计时器运行时按钮显示剩余时间 */
+.timer-toggle-btn.timer-running {
+  width: auto;
+  border-radius: 28px;
+  padding: 0 18px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  gap: 6px;
+  letter-spacing: 0.5px;
+}
+
+.timer-toggle-btn.timer-running .toggle-icon { font-size: 1rem; }
+
+/* ============================================================
+   计时器面板
+   ============================================================ */
+.timer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.timer-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.timer-panel {
+  position: fixed;
+  z-index: 201;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+  /* 桌面端：右侧侧栏 */
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 340px;
+  max-width: 100vw;
+  transform: translateX(100%);
+}
+
+.timer-panel.open { transform: translateX(0); }
+
+.timer-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.timer-panel-header h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timer-minimize-btn {
+  border: none;
+  background: transparent;
+  font-size: 1.4rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background var(--transition);
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.timer-minimize-btn:hover { background: var(--color-bg); }
+
+.timer-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 计时器显示 */
+.timer-display {
+  text-align: center;
+  padding: 10px 0;
+}
+
+.timer-mode-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.timer-time {
+  font-size: 3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
+  color: var(--color-text);
+}
+
+.timer-time.break-mode { color: #22C55E; }
+
+/* 任务选择列表 */
+.timer-task-list-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.timer-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.timer-task-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+  min-height: 44px;
+}
+
+.timer-task-item:hover { border-color: var(--color-primary); }
+
+.timer-task-item.selected {
+  border-color: var(--color-primary);
+  background: rgba(59,130,246,0.06);
+}
+
+.timer-task-item.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.timer-task-item .task-item-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.timer-task-item .task-item-title {
+  flex: 1;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timer-task-item .task-item-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  color: transparent;
+  transition: all var(--transition);
+}
+
+.timer-task-item.selected .task-item-check {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* 计时器控制按钮 */
+.timer-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.timer-controls .btn {
+  flex: 1;
+  min-width: 70px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition), opacity var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.btn-start { background: #22C55E; color: #fff; }
+.btn-start:hover { background: #16A34A; }
+.btn-pause { background: #F59E0B; color: #fff; }
+.btn-pause:hover { background: #D97706; }
+.btn-abandon { background: var(--color-danger); color: #fff; }
+.btn-abandon:hover { background: #DC2626; }
+
+.timer-controls .btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 计时器面板内无任务提示 */
+.timer-no-tasks {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  padding: 16px 0;
+}
+
+/* ============================================================
+   模态框
+   ============================================================ */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  padding: 20px;
+}
+
+.modal-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-small { max-width: 360px; }
+
+.modal h2, .modal h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.modal p {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+/* 表单 */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.form-group label .required { color: var(--color-danger); }
+
+.form-group input,
+.form-group textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-family: var(--font-family);
+  resize: vertical;
+  transition: border-color var(--transition);
+  min-height: 44px;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* 调色板 */
+.color-palette {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: border-color var(--transition), transform var(--transition);
+  flex-shrink: 0;
+}
+
+.color-swatch:hover { transform: scale(1.1); }
+
+.color-swatch.selected {
+  border-color: var(--color-text);
+  transform: scale(1.1);
+}
+
+/* 模态框按钮 */
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.modal-actions .btn {
+  min-width: 80px;
+  min-height: 44px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-save {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.btn-save:hover { background: #2563EB; }
+
+.btn-cancel {
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-cancel:hover { background: #E5E7EB; }
+
+.btn-danger {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.btn-danger:hover { background: #DC2626; }
+
+/* ============================================================
+   移动端适配 (屏幕宽度 < 768px)
+   ============================================================ */
+@media (max-width: 767px) {
+  /* 列标签：移动端显示 */
+  .column-tabs { display: flex; }
+
+  /* 看板改为单列显示 */
+  .kanban-board {
+    display: block;
+    padding: 12px;
+  }
+
+  .kanban-column {
+    display: none;
+    margin-bottom: 0;
+  }
+
+  .kanban-column.active { display: flex; }
+
+  /* 计时器面板：底部弹出 */
+  .timer-panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 65vh;
+    border-radius: 16px 16px 0 0;
+    transform: translateY(100%);
+  }
+
+  .timer-panel.open { transform: translateY(0); }
+
+  .timer-backdrop { display: block; }
+
+  /* 模态框全屏 */
+  .modal { max-width: 100%; border-radius: var(--radius) var(--radius) 0 0; }
+
+  /* 计时器按钮调小 */
+  .timer-toggle-btn {
+    bottom: 16px;
+    right: 16px;
+    width: 50px;
+    height: 50px;
+    font-size: 1.2rem;
+  }
+
+  /* 文本不产生横向滚动 */
+  .task-card .card-title,
+  .task-card .card-desc {
+    word-break: break-all;
+  }
+}
+
+/* ============================================================
+   桌面端计时器面板与看板布局
+   ============================================================ */
+@media (min-width: 768px) {
+  .timer-backdrop {
+    /* 桌面端不需要 backdrop（侧栏不遮挡看板） */
+    display: none;
+  }
+}
+
+/* ============================================================
+   桌面端超大屏：计时面板打开时调整看板宽度
+   通过 JS 给 .app-container 添加 .timer-open class 实现
+   ============================================================ */
+@media (min-width: 1200px) {
+  .app-container.timer-open {
+    margin-right: 340px;
+    transition: margin-right 0.3s ease;
+  }
+}
+
+/* ============================================================
+   动画
+   ============================================================ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.task-card { animation: fadeIn 0.2s ease; }
+</style>
+</head>
+<body>
+<div class="app-container">
+
+  <!-- ==================== 顶栏 ==================== -->
+  <header class="app-header">
+    <h1><span class="logo-icon">🍅</span>番茄看板</h1>
+  </header>
+
+  <!-- ==================== 移动端列标签 ==================== -->
+  <nav class="column-tabs" id="columnTabs">
+    <button class="column-tab active" data-column="todo">
+      待办 <span class="tab-count" id="tabCountTodo">0</span>
+    </button>
+    <button class="column-tab" data-column="doing">
+      进行中 <span class="tab-count" id="tabCountDoing">0</span>
+    </button>
+    <button class="column-tab" data-column="completed">
+      已完成 <span class="tab-count" id="tabCountCompleted">0</span>
+    </button>
+  </nav>
+
+  <!-- ==================== 看板面板 ==================== -->
+  <main class="kanban-board" id="kanbanBoard">
+    <!-- 待办列 -->
+    <section class="kanban-column active" id="column-todo" data-column="todo">
+      <div class="column-header">
+        <h2>待办</h2>
+        <span class="column-count" id="countTodo">0</span>
+      </div>
+      <div class="column-cards" id="cardsTodo"></div>
+      <button class="column-add-btn" data-column="todo">+ 添加任务</button>
+    </section>
+
+    <!-- 进行中列 -->
+    <section class="kanban-column" id="column-doing" data-column="doing">
+      <div class="column-header">
+        <h2>进行中</h2>
+        <span class="column-count" id="countDoing">0</span>
+      </div>
+      <div class="column-cards" id="cardsDoing"></div>
+      <button class="column-add-btn" data-column="doing">+ 添加任务</button>
+    </section>
+
+    <!-- 已完成列 -->
+    <section class="kanban-column" id="column-completed" data-column="completed">
+      <div class="column-header">
+        <h2>已完成</h2>
+        <span class="column-count" id="countCompleted">0</span>
+      </div>
+      <div class="column-cards" id="cardsCompleted"></div>
+      <button class="column-add-btn" data-column="completed">+ 添加任务</button>
+    </section>
+  </main>
+</div>
+
+<!-- ==================== 任务编辑模态框 ==================== -->
+<div class="modal-backdrop" id="taskModalBackdrop">
+  <div class="modal" id="taskModal">
+    <h2 id="taskModalTitle">添加任务</h2>
+    <form id="taskForm" autocomplete="off">
+      <input type="hidden" id="taskFormId">
+      <input type="hidden" id="taskFormColumn">
+      <div class="form-group">
+        <label for="taskFormTitle">任务标题 <span class="required">*</span></label>
+        <input type="text" id="taskFormTitle" required maxlength="200"
+               placeholder="请输入任务标题">
+      </div>
+      <div class="form-group">
+        <label for="taskFormDesc">任务描述</label>
+        <textarea id="taskFormDesc" rows="3" maxlength="500"
+                  placeholder="请输入任务描述（可选）"></textarea>
+      </div>
+      <div class="form-group">
+        <label>颜色标签</label>
+        <div class="color-palette" id="colorPalette"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-cancel" id="cancelTaskBtn">取消</button>
+        <button type="button" class="btn btn-danger" id="deleteTaskBtn"
+                style="display:none;">删除</button>
+        <button type="submit" class="btn btn-save" id="saveTaskBtn">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== 删除确认模态框 ==================== -->
+<div class="modal-backdrop" id="deleteModalBackdrop">
+  <div class="modal modal-small" id="deleteModal">
+    <h3>确认删除</h3>
+    <p id="deleteModalMsg">确定要删除此任务吗？此操作不可撤销。</p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-cancel" id="cancelDeleteBtn">取消</button>
+      <button type="button" class="btn btn-danger" id="confirmDeleteBtn">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 计时器切换按钮 ==================== -->
+<button class="timer-toggle-btn" id="timerToggleBtn" title="打开番茄钟">
+  <span class="toggle-icon">🍅</span>
+  <span class="toggle-time" style="display:none;"></span>
+</button>
+
+<!-- ==================== 计时器遮罩（移动端） ==================== -->
+<div class="timer-backdrop" id="timerBackdrop"></div>
+
+<!-- ==================== 计时器面板 ==================== -->
+<aside class="timer-panel" id="timerPanel">
+  <div class="timer-panel-header">
+    <h3>🍅 番茄钟</h3>
+    <button class="timer-minimize-btn" id="timerMinimizeBtn" title="最小化">×</button>
+  </div>
+  <div class="timer-panel-body">
+    <!-- 计时显示 -->
+    <div class="timer-display">
+      <div class="timer-mode-label" id="timerModeLabel">选择任务开始专注</div>
+      <div class="timer-time" id="timerTimeDisplay">25:00</div>
+    </div>
+
+    <!-- 任务选择列表 -->
+    <div>
+      <div class="timer-task-list-label">可选任务</div>
+      <div class="timer-task-list" id="timerTaskList"></div>
+      <div class="timer-no-tasks" id="timerNoTasks" style="display:none;">
+        暂无可选任务，请先在「待办」或「进行中」列添加任务
+      </div>
+    </div>
+
+    <!-- 控制按钮 -->
+    <div class="timer-controls">
+      <button class="btn btn-start" id="timerStartBtn" disabled>开始专注</button>
+      <button class="btn btn-pause" id="timerPauseBtn" disabled>暂停</button>
+      <button class="btn btn-abandon" id="timerAbandonBtn" disabled>放弃</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ==================== 触控拖拽克隆元素 ==================== -->
+<div class="task-card drag-clone" id="dragClone" style="display:none;">
+  <div class="color-strip" id="dragCloneColor"></div>
+  <div class="card-content">
+    <div class="card-title" id="dragCloneTitle"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 常量定义
+// ============================================================
+const STORAGE_KEY = 'pomodoro-kanban-tasks';
+
+const COLORS = [
+  { value: '#EF4444', label: '红' },
+  { value: '#F97316', label: '橙' },
+  { value: '#EAB308', label: '黄' },
+  { value: '#22C55E', label: '绿' },
+  { value: '#06B6D4', label: '青' },
+  { value: '#3B82F6', label: '蓝' },
+  { value: '#8B5CF6', label: '紫' },
+  { value: '#9CA3AF', label: '灰' }
+];
+const DEFAULT_COLOR = '#9CA3AF';
+
+const COLUMNS = [
+  { key: 'todo',       label: '待办' },
+  { key: 'doing',      label: '进行中' },
+  { key: 'completed',  label: '已完成' }
+];
+
+const FOCUS_SECONDS = 25 * 60;   // 25 分钟
+const BREAK_SECONDS = 5 * 60;    // 5 分钟
+const LONG_PRESS_MS = 300;       // 长按触发时间
+const DEBOUNCE_MS = 200;         // localStorage 写入防抖
+const TOUCH_MOVE_THRESHOLD = 10; // 触控移动阈值（超过此值取消长按）
+
+// ============================================================
+// 数据存储模块 (Store)
+// 负责 localStorage 读写与内存中任务数组的管理
+// ============================================================
+const Store = (() => {
+  let _tasks = [];
+  let _debounceTimer = null;
+
+  /** 初始化：从 localStorage 加载任务数据 */
+  function init() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      _tasks = raw ? JSON.parse(raw) : [];
+    } catch (_e) {
+      _tasks = [];
+    }
+    // 确保所有任务都有必要的字段
+    _tasks = _tasks.map(normalizeTask);
+  }
+
+  /** 容错：为缺少字段的旧数据补充默认值 */
+  function normalizeTask(t) {
+    return {
+      id:          t.id          || crypto.randomUUID(),
+      title:       t.title       || '未命名任务',
+      description: t.description || '',
+      color:       t.color       || DEFAULT_COLOR,
+      column:      t.column      || 'todo',
+      order:       typeof t.order === 'number' ? t.order : 0,
+      createdAt:   t.createdAt   || new Date().toISOString()
+    };
+  }
+
+  /** 获取全部任务 */
+  function getAll() { return _tasks; }
+
+  /** 获取指定列的任务（按 order 排序） */
+  function getByColumn(col) {
+    return _tasks
+      .filter(t => t.column === col)
+      .sort((a, b) => a.order - b.order);
+  }
+
+  /** 获取指定 ID 的任务 */
+  function getById(id) { return _tasks.find(t => t.id === id) || null; }
+
+  /** 获取非「已完成」列的任务 */
+  function getActiveTasks() {
+    return _tasks.filter(t => t.column !== 'completed');
+  }
+
+  /** 添加任务 */
+  function add(task) {
+    const colTasks = getByColumn(task.column);
+    task.order = colTasks.length > 0
+      ? Math.max(...colTasks.map(t => t.order)) + 1
+      : 0;
+    _tasks.push(normalizeTask(task));
+    scheduleSave();
+  }
+
+  /** 更新任务字段 */
+  function update(taskId, updates) {
+    const task = getById(taskId);
+    if (!task) return;
+    Object.assign(task, updates);
+    scheduleSave();
+  }
+
+  /** 删除任务 */
+  function remove(taskId) {
+    _tasks = _tasks.filter(t => t.id !== taskId);
+    scheduleSave();
+  }
+
+  /**
+   * 移动任务到目标列的指定位置
+   * @param {string} taskId  任务 ID
+   * @param {string} targetCol 目标列 key
+   * @param {number} targetIndex 目标列中的插入位置
+   */
+  function move(taskId, targetCol, targetIndex) {
+    const task = getById(taskId);
+    if (!task) return;
+    const sourceCol = task.column;
+
+    // 更改所属列
+    task.column = targetCol;
+
+    // 获取目标列的任务列表（排除当前任务）
+    let targetTasks = _tasks
+      .filter(t => t.column === targetCol && t.id !== taskId)
+      .sort((a, b) => a.order - b.order);
+
+    // 在目标位置插入
+    targetTasks.splice(targetIndex, 0, task);
+
+    // 重新分配目标列所有任务的 order
+    targetTasks.forEach((t, i) => { t.order = i; });
+
+    // 如果移动到不同列，重新分配源列 order
+    if (sourceCol !== targetCol) {
+      const sourceTasks = _tasks
+        .filter(t => t.column === sourceCol)
+        .sort((a, b) => a.order - b.order);
+      sourceTasks.forEach((t, i) => { t.order = i; });
+    }
+
+    scheduleSave();
+  }
+
+  /** 防抖写入 localStorage */
+  function scheduleSave() {
+    clearTimeout(_debounceTimer);
+    _debounceTimer = setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(_tasks));
+    }, DEBOUNCE_MS);
+  }
+
+  /** 立即写入 localStorage（用于页面关闭前） */
+  function flushSave() {
+    clearTimeout(_debounceTimer);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(_tasks));
+  }
+
+  return { init, getAll, getByColumn, getById, getActiveTasks, add, update, remove, move, flushSave };
+})();
+
+// ============================================================
+// 音频模块 (Beeper)
+// 使用 Web Audio API 生成提示音
+// ============================================================
+const Beeper = (() => {
+  let _ctx = null;
+
+  /** 获取或创建 AudioContext */
+  function getCtx() {
+    if (!_ctx) {
+      _ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return _ctx;
+  }
+
+  /** 播放一个 beep 音 */
+  function beep(frequency, duration, type) {
+    try {
+      const ctx = getCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = type || 'sine';
+      osc.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + duration);
+    } catch (_e) { /* 静默处理音频错误 */ }
+  }
+
+  /** 专注完成提示音（三声渐高） */
+  function focusComplete() {
+    setTimeout(() => beep(523, 0.15, 'sine'), 0);
+    setTimeout(() => beep(659, 0.15, 'sine'), 150);
+    setTimeout(() => beep(784, 0.3,  'sine'), 300);
+  }
+
+  /** 休息完成提示音（两声） */
+  function breakComplete() {
+    setTimeout(() => beep(784, 0.2, 'sine'), 0);
+    setTimeout(() => beep(523, 0.35, 'sine'), 250);
+  }
+
+  /** 恢复 AudioContext（用户手势后调用） */
+  function resume() {
+    try {
+      const ctx = getCtx();
+      if (ctx.state === 'suspended') { ctx.resume(); }
+    } catch (_e) { /* 静默处理 */ }
+  }
+
+  return { beep, focusComplete, breakComplete, resume };
+})();
+
+// ============================================================
+// 番茄计时器模块 (Timer)
+// 状态机：idle -> focus -> break -> idle
+// ============================================================
+const Timer = (() => {
+  let _state = 'idle';      // 'idle' | 'focus' | 'break'
+  let _seconds = FOCUS_SECONDS;
+  let _taskId = null;
+  let _intervalId = null;
+  let _isPaused = false;
+
+  /** 获取当前状态 */
+  function getState() { return _state; }
+
+  /** 获取当前秒数 */
+  function getSeconds() { return _seconds; }
+
+  /** 获取焦点任务 ID */
+  function getTaskId() { return _taskId; }
+
+  /** 判断任务是否被锁定 */
+  function isTaskLocked(id) { return _state !== 'idle' && _taskId === id; }
+
+  /** 是否有活跃会话 */
+  function isActive() { return _state !== 'idle'; }
+
+  /** 开始专注 */
+  function start(taskId) {
+    if (_state !== 'idle') return;
+    const task = Store.getById(taskId);
+    if (!task) {
+      // 任务已被删除，重置引用
+      _taskId = null;
+      updateUI();
+      return;
+    }
+    Beeper.resume(); // 用户手势触发 AudioContext 恢复
+    _taskId = taskId;
+    _state = 'focus';
+    _seconds = FOCUS_SECONDS;
+    _isPaused = false;
+    _startInterval();
+    updateUI();
+  }
+
+  /** 暂停 / 恢复 */
+  function togglePause() {
+    if (_state === 'idle') return;
+    _isPaused = !_isPaused;
+    if (_isPaused) {
+      clearInterval(_intervalId);
+      _intervalId = null;
+    } else {
+      _startInterval();
+    }
+    updateUI();
+  }
+
+  /** 放弃当前会话 */
+  function abandon() {
+    clearInterval(_intervalId);
+    _intervalId = null;
+    _taskId = null;
+    _state = 'idle';
+    _seconds = FOCUS_SECONDS;
+    _isPaused = false;
+    updateUI();
+    document.title = '番茄看板';
+  }
+
+  /** 启动倒计时 */
+  function _startInterval() {
+    if (_intervalId) clearInterval(_intervalId);
+    _intervalId = setInterval(() => {
+      _seconds--;
+      if (_seconds > 0) {
+        updateUI();
+      } else {
+        clearInterval(_intervalId);
+        _intervalId = null;
+        _onComplete();
+      }
+    }, 1000);
+  }
+
+  /** 当前阶段完成 */
+  function _onComplete() {
+    Beeper.resume(); // 确保 AudioContext 处于运行状态（非用户手势触发时可能被暂停）
+    if (_state === 'focus') {
+      // 专注完成 → 提示音 → 自动进入休息
+      Beeper.focusComplete();
+      _state = 'break';
+      _seconds = BREAK_SECONDS;
+      _isPaused = false;
+      _startInterval();
+      updateUI();
+    } else if (_state === 'break') {
+      // 休息完成 → 提示音 → 重置
+      Beeper.breakComplete();
+      _taskId = null;
+      _state = 'idle';
+      _seconds = FOCUS_SECONDS;
+      _isPaused = false;
+      updateUI();
+      document.title = '番茄看板';
+    }
+  }
+
+  /** 更新所有计时器相关 UI（仅做增量 DOM 更新，不重绘看板） */
+  function updateUI() {
+    _updatePanelUI();
+    _updateToggleBtn();
+    _updateTabTitle();
+    _updateTaskFocusBadge();
+  }
+
+  /** 更新计时器面板内部 UI */
+  function _updatePanelUI() {
+    const timeDisplay = document.getElementById('timerTimeDisplay');
+    const modeLabel = document.getElementById('timerModeLabel');
+    const startBtn = document.getElementById('timerStartBtn');
+    const pauseBtn = document.getElementById('timerPauseBtn');
+    const abandonBtn = document.getElementById('timerAbandonBtn');
+    const taskListEl = document.getElementById('timerTaskList');
+
+    const min = Math.floor(_seconds / 60);
+    const sec = _seconds % 60;
+    const timeStr = String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    timeDisplay.textContent = timeStr;
+    timeDisplay.classList.toggle('break-mode', _state === 'break');
+
+    // 按钮状态
+    if (_state === 'idle') {
+      modeLabel.textContent = '选择任务开始专注';
+      startBtn.disabled = !_taskId;
+      startBtn.textContent = '开始专注';
+      startBtn.style.display = '';
+      pauseBtn.disabled = true;
+      pauseBtn.textContent = '暂停';
+      pauseBtn.style.display = '';
+      abandonBtn.disabled = true;
+      _enableTimerTaskList();
+    } else if (_state === 'focus' || _state === 'break') {
+      modeLabel.textContent = _state === 'focus' ? '🔴 专注中' : '🟢 休息中';
+      startBtn.style.display = 'none';
+      pauseBtn.disabled = false;
+      pauseBtn.textContent = _isPaused ? '继续' : '暂停';
+      abandonBtn.disabled = false;
+      _disableTimerTaskList();
+    }
+
+    // 更新任务列表选中态
+    renderTimerTaskList();
+  }
+
+  /** 更新浮动按钮 UI */
+  function _updateToggleBtn() {
+    const btn = document.getElementById('timerToggleBtn');
+    const iconEl = btn.querySelector('.toggle-icon');
+    const timeEl = btn.querySelector('.toggle-time');
+
+    if (_state !== 'idle') {
+      // 计时中：按钮显示剩余时间
+      const min = Math.floor(_seconds / 60);
+      const sec = _seconds % 60;
+      const timeStr = String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+      btn.classList.add('timer-running');
+      iconEl.style.display = 'none';
+      timeEl.style.display = '';
+      timeEl.textContent = (_state === 'focus' ? '🍅 ' : '☕ ') + timeStr;
+    } else {
+      // 无计时：显示图标
+      btn.classList.remove('timer-running');
+      iconEl.style.display = '';
+      iconEl.textContent = '🍅';
+      timeEl.style.display = 'none';
+    }
+  }
+
+  /** 更新标签页标题 */
+  function _updateTabTitle() {
+    if (_state === 'idle') {
+      document.title = '番茄看板';
+    } else {
+      const min = Math.floor(_seconds / 60);
+      const sec = _seconds % 60;
+      const timeStr = String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+      const label = _state === 'focus' ? '专注' : '休息';
+      document.title = timeStr + ' - ' + label + ' - 番茄看板';
+    }
+  }
+
+  /** 更新任务卡片上的「聚焦中」标识 */
+  function _updateTaskFocusBadge() {
+    document.querySelectorAll('.task-card').forEach(card => {
+      const cardId = card.dataset.taskId;
+      if (_state !== 'idle' && cardId === _taskId) {
+        card.classList.add('focused');
+      } else {
+        card.classList.remove('focused');
+      }
+      // 更新锁定状态（不可拖拽）
+      card.classList.toggle('locked', _state !== 'idle' && cardId === _taskId);
+    });
+  }
+
+  /** 启用计时面板任务列表 */
+  function _enableTimerTaskList() {
+    document.querySelectorAll('.timer-task-item').forEach(el => {
+      el.classList.remove('disabled');
+    });
+  }
+
+  /** 禁用计时面板任务列表 */
+  function _disableTimerTaskList() {
+    document.querySelectorAll('.timer-task-item').forEach(el => {
+      el.classList.add('disabled');
+    });
+  }
+
+  /**
+   * 设置选中的任务（在 idle 状态下）
+   * @returns {boolean} 是否设置成功
+   */
+  function selectTask(taskId) {
+    if (_state !== 'idle') return false;
+    const task = Store.getById(taskId);
+    if (!task || task.column === 'completed') return false;
+    _taskId = taskId;
+    updateUI();
+    return true;
+  }
+
+  /** 清除选中的任务引用（外部删除任务后调用） */
+  function clearSelectedTask() {
+    if (_state !== 'idle') return;
+    _taskId = null;
+    updateUI();
+  }
+
+  return {
+    getState, getSeconds, getTaskId, isTaskLocked, isActive,
+    start, togglePause, abandon, selectTask, clearSelectedTask, updateUI
+  };
+})();
+
+// ============================================================
+// 渲染计时面板任务列表
+// ============================================================
+function renderTimerTaskList() {
+  const listEl = document.getElementById('timerTaskList');
+  const noTasksEl = document.getElementById('timerNoTasks');
+  const tasks = Store.getActiveTasks();
+
+  if (tasks.length === 0) {
+    listEl.innerHTML = '';
+    noTasksEl.style.display = '';
+    return;
+  }
+
+  noTasksEl.style.display = 'none';
+  const currentTaskId = Timer.getTaskId();
+
+  listEl.innerHTML = tasks.map(t => {
+    const isSelected = t.id === currentTaskId;
+    const isDisabled = Timer.isActive();
+    return `
+      <div class="timer-task-item${isSelected ? ' selected' : ''}${isDisabled ? ' disabled' : ''}"
+           data-task-id="${t.id}">
+        <span class="task-item-color" style="background:${t.color};"></span>
+        <span class="task-item-title" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
+        <span class="task-item-check">✓</span>
+      </div>
+    `;
+  }).join('');
+
+  // 绑定点击事件
+  listEl.querySelectorAll('.timer-task-item').forEach(item => {
+    item.addEventListener('click', () => {
+      if (Timer.isActive()) return;
+      Timer.selectTask(item.dataset.taskId);
+    });
+  });
+}
+
+// ============================================================
+// HTML 转义工具
+// ============================================================
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ============================================================
+// 看板模块 (Kanban)
+// 负责看板渲染、拖拽逻辑（桌面 + 触控）
+// ============================================================
+const Kanban = (() => {
+  // 触控拖拽状态
+  let _touchDragTaskId = null;
+  let _touchStartX = 0;
+  let _touchStartY = 0;
+  let _longPressTimer = null;
+  let _isDragging = false;
+  let _touchMoved = false;
+  let _startElement = null;
+  let _justDragged = false; // 防止拖拽结束后触发 click 事件
+
+  /** 渲染全部列 */
+  function renderAll() {
+    COLUMNS.forEach(col => renderColumn(col.key));
+    updateAllCounts();
+  }
+
+  /** 渲染单列 */
+  function renderColumn(colKey) {
+    const cardsEl = document.getElementById('cards' + capitalize(colKey));
+    if (!cardsEl) return;
+    const tasks = Store.getByColumn(colKey);
+
+    // 空列占位
+    if (tasks.length === 0) {
+      cardsEl.innerHTML = `<div class="column-empty">拖放任务至此</div>`;
+    } else {
+      cardsEl.innerHTML = tasks.map(t => createCardHTML(t)).join('');
+    }
+
+    // 绑定卡片事件
+    cardsEl.querySelectorAll('.task-card').forEach(card => {
+      const taskId = card.dataset.taskId;
+      const task = Store.getById(taskId);
+      if (!task) return;
+
+      // 更新锁定 / 聚焦状态
+      const isLocked = Timer.isTaskLocked(taskId);
+      card.classList.toggle('focused', Timer.getState() !== 'idle' && taskId === Timer.getTaskId());
+      card.classList.toggle('locked', isLocked);
+
+      // 桌面拖拽事件（锁定的任务不可拖拽）
+      if (!isLocked) {
+        card.draggable = true;
+        card.addEventListener('dragstart', (e) => onDragStart(e, taskId));
+        card.addEventListener('dragend', onDragEnd);
+      } else {
+        card.draggable = false;
+      }
+
+      // 触控事件（长按拖拽）
+      card.addEventListener('touchstart', (e) => onTouchStart(e, taskId, card));
+
+      // 点击卡片 → 打开编辑（拖拽结束后或被锁定的任务不处理）
+      card.addEventListener('click', (e) => {
+        if (_justDragged) return;
+        if (Timer.isTaskLocked(taskId)) return;
+        Modal.openEdit(taskId);
+      });
+
+      // 桌面端拖入卡片时的位置指示
+      card.addEventListener('dragover', (e) => onCardDragOver(e, card, taskId));
+      card.addEventListener('dragleave', (e) => onCardDragLeave(e, card));
+      card.addEventListener('drop', (e) => onCardDrop(e, card, taskId));
+    });
+
+    updateColumnCount(colKey);
+  }
+
+  /** 生成单张卡片的 HTML */
+  function createCardHTML(task) {
+    const descHtml = task.description
+      ? `<div class="card-desc" title="${escapeHtml(task.description)}">${escapeHtml(task.description)}</div>`
+      : '';
+    return `
+      <div class="task-card" data-task-id="${task.id}" data-column="${task.column}">
+        <div class="color-strip" style="background:${task.color};"></div>
+        <div class="card-content">
+          <div class="card-title" title="${escapeHtml(task.title)}">${escapeHtml(task.title)}</div>
+          ${descHtml}
+        </div>
+        <div class="focus-badge">🍅 聚焦中</div>
+      </div>
+    `;
+  }
+
+  /** 辅助：首字母大写 */
+  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  // ---- 桌面端 HTML5 拖拽 ----
+
+  function onDragStart(e, taskId) {
+    const task = Store.getById(taskId);
+    if (!task || Timer.isTaskLocked(taskId)) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', taskId);
+    const card = e.target.closest('.task-card');
+    if (card) {
+      // 延迟添加样式，确保拖拽图像正确
+      setTimeout(() => card.classList.add('dragging'), 0);
+    }
+  }
+
+  function onDragEnd(e) {
+    const card = e.target.closest('.task-card');
+    if (card) card.classList.remove('dragging');
+    // 清除所有列和卡片的高亮
+    document.querySelectorAll('.kanban-column').forEach(col => col.classList.remove('drag-over'));
+    document.querySelectorAll('.task-card').forEach(c => {
+      c.classList.remove('drop-before', 'drop-after');
+    });
+  }
+
+  function onCardDragOver(e, card, taskId) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    // 判断鼠标在卡片上半部分还是下半部分
+    const rect = card.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    card.classList.remove('drop-before', 'drop-after');
+    if (e.clientY < midY) {
+      card.classList.add('drop-before');
+    } else {
+      card.classList.add('drop-after');
+    }
+  }
+
+  function onCardDragLeave(_e, card) {
+    card.classList.remove('drop-before', 'drop-after');
+  }
+
+  function onCardDrop(e, card, targetTaskId) {
+    e.preventDefault();
+    card.classList.remove('drop-before', 'drop-after');
+    const taskId = e.dataTransfer.getData('text/plain');
+    if (!taskId) return;
+    const task = Store.getById(taskId);
+    if (!task || Timer.isTaskLocked(taskId)) return;
+
+    const targetCol = card.closest('.kanban-column')?.dataset.column;
+    if (!targetCol) return;
+
+    // 计算插入位置
+    const targetTasks = Store.getByColumn(targetCol);
+    let targetIndex = targetTasks.findIndex(t => t.id === targetTaskId);
+    if (targetIndex === -1) targetIndex = targetTasks.length;
+
+    const rect = card.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (e.clientY >= midY) targetIndex++;
+
+    // 如果目标位置在原任务之后且同列，需要调整
+    if (task.column === targetCol) {
+      const oldIndex = targetTasks.findIndex(t => t.id === taskId);
+      if (oldIndex < targetIndex) targetIndex--;
+    }
+
+    Store.move(taskId, targetCol, Math.max(0, targetIndex));
+    renderAll();
+  }
+
+  // 列级别的 dragover / drop（用于拖到空列或列边缘）
+  function setupColumnDropZones() {
+    document.querySelectorAll('.kanban-column').forEach(col => {
+      col.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        col.classList.add('drag-over');
+      });
+      col.addEventListener('dragleave', (e) => {
+        // 仅在离开列本身时移除高亮
+        if (!col.contains(e.relatedTarget)) {
+          col.classList.remove('drag-over');
+        }
+      });
+      col.addEventListener('drop', (e) => {
+        e.preventDefault();
+        col.classList.remove('drag-over');
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (!taskId) return;
+        const task = Store.getById(taskId);
+        if (!task || Timer.isTaskLocked(taskId)) return;
+
+        const targetCol = col.dataset.column;
+        // 添加到目标列末尾
+        const targetTasks = Store.getByColumn(targetCol);
+        Store.move(taskId, targetCol, targetTasks.length);
+        renderAll();
+      });
+    });
+  }
+
+  // ---- 触控拖拽（移动端）----
+
+  function onTouchStart(e, taskId, card) {
+    if (Timer.isTaskLocked(taskId)) return;
+    _touchStartX = e.touches[0].clientX;
+    _touchStartY = e.touches[0].clientY;
+    _touchMoved = false;
+    _isDragging = false;
+    _startElement = card;
+    _touchDragTaskId = taskId;
+
+    clearTimeout(_longPressTimer);
+    _longPressTimer = setTimeout(() => {
+      if (!_touchMoved) {
+        beginTouchDrag(e, taskId, card);
+      }
+    }, LONG_PRESS_MS);
+  }
+
+  function onTouchMove(e) {
+    if (!_touchDragTaskId) return;
+    const dx = e.touches[0].clientX - _touchStartX;
+    const dy = e.touches[0].clientY - _touchStartY;
+    if (!_isDragging && (Math.abs(dx) > TOUCH_MOVE_THRESHOLD || Math.abs(dy) > TOUCH_MOVE_THRESHOLD)) {
+      _touchMoved = true;
+      clearTimeout(_longPressTimer);
+    }
+    if (_isDragging) {
+      e.preventDefault();
+      updateTouchDrag(e);
+    }
+  }
+
+  function onTouchEnd(e) {
+    clearTimeout(_longPressTimer);
+    if (_isDragging) {
+      endTouchDrag(e);
+      // 防止拖拽结束后浏览器触发 click 事件
+      _justDragged = true;
+      setTimeout(() => { _justDragged = false; }, 100);
+    }
+    _touchDragTaskId = null;
+    _isDragging = false;
+    _touchMoved = false;
+    _startElement = null;
+  }
+
+  /** 开始触控拖拽 */
+  function beginTouchDrag(e, taskId, card) {
+    _isDragging = true;
+    card.classList.add('dragging');
+
+    // 显示拖拽克隆元素
+    const clone = document.getElementById('dragClone');
+    const task = Store.getById(taskId);
+    if (clone && task) {
+      document.getElementById('dragCloneColor').style.background = task.color;
+      document.getElementById('dragCloneTitle').textContent = task.title;
+      clone.style.display = '';
+      updateClonePosition(e.touches[0]);
+    }
+
+    // 如果设备支持触觉反馈
+    if (navigator.vibrate) {
+      navigator.vibrate(15);
+    }
+  }
+
+  /** 更新拖拽克隆位置 */
+  function updateTouchDrag(e) {
+    updateClonePosition(e.touches[0]);
+    // 高亮手指下方的列
+    highlightColumnUnderPoint(e.touches[0].clientX, e.touches[0].clientY);
+  }
+
+  /** 更新克隆元素位置 */
+  function updateClonePosition(touch) {
+    const clone = document.getElementById('dragClone');
+    if (!clone) return;
+    clone.style.left = (touch.clientX - 130) + 'px';
+    clone.style.top = (touch.clientY - 40) + 'px';
+  }
+
+  /** 高亮手指下方的列 */
+  function highlightColumnUnderPoint(clientX, clientY) {
+    // 清除所有高亮
+    document.querySelectorAll('.kanban-column').forEach(c => c.classList.remove('drag-over'));
+    const el = document.elementFromPoint(clientX, clientY);
+    if (el) {
+      const col = el.closest('.kanban-column');
+      if (col) col.classList.add('drag-over');
+    }
+  }
+
+  /** 结束触控拖拽 */
+  function endTouchDrag(e) {
+    const clone = document.getElementById('dragClone');
+    if (clone) clone.style.display = 'none';
+
+    // 清除高亮和指示线
+    document.querySelectorAll('.kanban-column').forEach(c => c.classList.remove('drag-over'));
+    document.querySelectorAll('.task-card').forEach(c => c.classList.remove('drop-before', 'drop-after'));
+
+    if (_startElement) {
+      _startElement.classList.remove('dragging');
+    }
+
+    const taskId = _touchDragTaskId;
+    if (!taskId) return;
+    const task = Store.getById(taskId);
+    if (!task) return;
+
+    // 获取手指所在的列
+    const touch = e.changedTouches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const targetColEl = el?.closest('.kanban-column');
+    if (!targetColEl) return;
+    const targetCol = targetColEl.dataset.column;
+    if (!targetCol) return;
+
+    // 计算在目标列中的插入位置，同时添加插入位置指示
+    const targetTasks = Store.getByColumn(targetCol);
+    const cardsInTarget = targetColEl.querySelectorAll('.task-card:not(.dragging)');
+    let insertIndex = targetTasks.length;
+
+    for (let i = 0; i < cardsInTarget.length; i++) {
+      const rect = cardsInTarget[i].getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      if (touch.clientY < midY) {
+        insertIndex = i;
+        cardsInTarget[i].classList.add('drop-before');
+        break;
+      } else {
+        cardsInTarget[i].classList.add('drop-after');
+      }
+    }
+
+    // 调整索引（同列移动时）
+    if (task.column === targetCol) {
+      const oldIndex = targetTasks.findIndex(t => t.id === taskId);
+      if (oldIndex < insertIndex) insertIndex--;
+    }
+
+    Store.move(taskId, targetCol, Math.max(0, insertIndex));
+    renderAll();
+    _isDragging = false;
+  }
+
+  // ---- 统计更新 ----
+
+  /** 更新所有列的计数 */
+  function updateAllCounts() {
+    COLUMNS.forEach(col => updateColumnCount(col.key));
+  }
+
+  /** 更新单列计数 */
+  function updateColumnCount(colKey) {
+    const tasks = Store.getByColumn(colKey);
+    const cap = capitalize(colKey);
+    const countEl = document.getElementById('count' + cap);
+    const tabCountEl = document.getElementById('tabCount' + cap);
+    if (countEl) countEl.textContent = tasks.length;
+    if (tabCountEl) tabCountEl.textContent = tasks.length;
+  }
+
+  /** 注册文档级触控监听（touchmove / touchend 需在 document 上以保证跨越卡片边界的拖拽可靠） */
+  function setupDocumentTouch() {
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+  }
+
+  return { renderAll, renderColumn, updateAllCounts, setupColumnDropZones, setupDocumentTouch };
+})();
+
+// ============================================================
+// 模态框管理 (Modal)
+// ============================================================
+const Modal = (() => {
+  /** 当前编辑的任务 ID（null 表示新建） */
+  let _editingTaskId = null;
+  /** 当前选择的颜色 */
+  let _selectedColor = DEFAULT_COLOR;
+
+  /** 初始化调色板 */
+  function initColorPalette() {
+    const palette = document.getElementById('colorPalette');
+    palette.innerHTML = COLORS.map(c => `
+      <div class="color-swatch${c.value === _selectedColor ? ' selected' : ''}"
+           style="background:${c.value};" data-color="${c.value}"
+           title="${c.label}"></div>
+    `).join('');
+
+    palette.querySelectorAll('.color-swatch').forEach(swatch => {
+      swatch.addEventListener('click', () => {
+        palette.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        swatch.classList.add('selected');
+        _selectedColor = swatch.dataset.color;
+      });
+    });
+  }
+
+  /** 打开新建任务模态框 */
+  function openCreate(columnKey) {
+    _editingTaskId = null;
+    _selectedColor = DEFAULT_COLOR;
+    document.getElementById('taskModalTitle').textContent = '添加任务';
+    document.getElementById('taskFormId').value = '';
+    document.getElementById('taskFormColumn').value = columnKey;
+    document.getElementById('taskFormTitle').value = '';
+    document.getElementById('taskFormDesc').value = '';
+    document.getElementById('deleteTaskBtn').style.display = 'none';
+    resetColorPaletteSelection();
+    document.getElementById('taskModalBackdrop').classList.add('open');
+    document.getElementById('taskFormTitle').focus();
+  }
+
+  /** 打开编辑任务模态框 */
+  function openEdit(taskId) {
+    const task = Store.getById(taskId);
+    if (!task) return;
+    _editingTaskId = taskId;
+    _selectedColor = task.color;
+    document.getElementById('taskModalTitle').textContent = '编辑任务';
+    document.getElementById('taskFormId').value = task.id;
+    document.getElementById('taskFormColumn').value = task.column;
+    document.getElementById('taskFormTitle').value = task.title;
+    document.getElementById('taskFormDesc').value = task.description || '';
+
+    // 删除按钮始终可见（若任务正被番茄钟锁定，确认时 executeDelete 会自动放弃会话）
+    document.getElementById('deleteTaskBtn').style.display = '';
+
+    resetColorPaletteSelection();
+    document.getElementById('taskModalBackdrop').classList.add('open');
+  }
+
+  /** 关闭任务模态框 */
+  function closeTask() {
+    document.getElementById('taskModalBackdrop').classList.remove('open');
+    _editingTaskId = null;
+  }
+
+  /** 重置调色板选中状态 */
+  function resetColorPaletteSelection() {
+    const palette = document.getElementById('colorPalette');
+    palette.querySelectorAll('.color-swatch').forEach(s => {
+      s.classList.toggle('selected', s.dataset.color === _selectedColor);
+    });
+  }
+
+  /** 保存任务（新建或编辑） */
+  function save() {
+    const title = document.getElementById('taskFormTitle').value.trim();
+    if (!title) {
+      document.getElementById('taskFormTitle').focus();
+      return;
+    }
+
+    const columnKey = document.getElementById('taskFormColumn').value;
+    const desc = document.getElementById('taskFormDesc').value.trim();
+
+    if (_editingTaskId) {
+      // 编辑现有任务
+      Store.update(_editingTaskId, {
+        title: title,
+        description: desc,
+        color: _selectedColor
+      });
+    } else {
+      // 新建任务
+      Store.add({
+        id: crypto.randomUUID(),
+        title: title,
+        description: desc,
+        color: _selectedColor,
+        column: columnKey,
+        order: 0,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    closeTask();
+    Kanban.renderAll();
+    renderTimerTaskList();
+  }
+
+  /** 确认删除：弹出二次确认 */
+  function confirmDelete() {
+    const taskId = document.getElementById('taskFormId').value;
+    if (!taskId) return;
+
+    const task = Store.getById(taskId);
+    if (!task) return;
+
+    const msgEl = document.getElementById('deleteModalMsg');
+    if (Timer.isTaskLocked(taskId)) {
+      msgEl.textContent = '此任务正在进行番茄专注。放弃番茄会话后，任务将被删除。确定继续吗？';
+    } else {
+      msgEl.textContent = '确定要删除此任务吗？此操作不可撤销。';
+    }
+
+    // 暂存任务 ID
+    document.getElementById('deleteModalBackdrop').dataset.taskId = taskId;
+    document.getElementById('deleteModalBackdrop').classList.add('open');
+  }
+
+  /** 执行删除 */
+  function executeDelete() {
+    const backdrop = document.getElementById('deleteModalBackdrop');
+    const taskId = backdrop.dataset.taskId;
+    if (!taskId) return;
+
+    // 如果正在番茄中，先放弃
+    if (Timer.isTaskLocked(taskId)) {
+      Timer.abandon();
+    }
+
+    Store.remove(taskId);
+    // 如果删除的任务是计时器选中的任务，清除引用
+    if (Timer.getTaskId() === taskId) {
+      Timer.clearSelectedTask();
+    }
+    backdrop.classList.remove('open');
+    backdrop.dataset.taskId = '';
+    closeTask();
+    Kanban.renderAll();
+    renderTimerTaskList();
+  }
+
+  /** 关闭删除确认模态框 */
+  function closeDelete() {
+    const backdrop = document.getElementById('deleteModalBackdrop');
+    backdrop.classList.remove('open');
+    backdrop.dataset.taskId = '';
+  }
+
+  return { initColorPalette, openCreate, openEdit, closeTask, save, confirmDelete, executeDelete, closeDelete };
+})();
+
+// ============================================================
+// 计时器面板开关
+// ============================================================
+
+function openTimerPanel() {
+  document.getElementById('timerPanel').classList.add('open');
+  document.getElementById('timerBackdrop').classList.add('open');
+  document.querySelector('.app-container').classList.add('timer-open');
+  renderTimerTaskList();
+}
+
+function closeTimerPanel() {
+  document.getElementById('timerPanel').classList.remove('open');
+  document.getElementById('timerBackdrop').classList.remove('open');
+  document.querySelector('.app-container').classList.remove('timer-open');
+}
+
+function toggleTimerPanel() {
+  const panel = document.getElementById('timerPanel');
+  if (panel.classList.contains('open')) {
+    closeTimerPanel();
+  } else {
+    openTimerPanel();
+  }
+}
+
+// ============================================================
+// 移动端列标签切换
+// ============================================================
+
+function switchMobileColumn(colKey) {
+  // 更新标签按钮状态
+  document.querySelectorAll('.column-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.column === colKey);
+  });
+  // 显示 / 隐藏对应的列
+  document.querySelectorAll('.kanban-column').forEach(col => {
+    col.classList.toggle('active', col.dataset.column === colKey);
+  });
+}
+
+// ============================================================
+// 应用初始化 (App)
+// ============================================================
+function initApp() {
+  // 1. 初始化数据
+  Store.init();
+
+  // 2. 初始化调色板
+  Modal.initColorPalette();
+
+  // 3. 渲染看板
+  Kanban.renderAll();
+  Kanban.setupColumnDropZones();
+  Kanban.setupDocumentTouch();
+
+  // 4. 渲染计时面板任务列表
+  renderTimerTaskList();
+
+  // 5. 更新计时器 UI（确保加载后状态干净）
+  Timer.updateUI();
+
+  // ---- 事件绑定 ----
+
+  // 列"添加任务"按钮
+  document.querySelectorAll('.column-add-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      Modal.openCreate(btn.dataset.column);
+    });
+  });
+
+  // 任务表单提交
+  document.getElementById('taskForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    Modal.save();
+  });
+
+  // 取消按钮
+  document.getElementById('cancelTaskBtn').addEventListener('click', Modal.closeTask);
+
+  // 删除按钮（编辑模态框内）
+  document.getElementById('deleteTaskBtn').addEventListener('click', Modal.confirmDelete);
+
+  // 模态框遮罩点击关闭
+  document.getElementById('taskModalBackdrop').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) Modal.closeTask();
+  });
+
+  // 删除确认模态框
+  document.getElementById('confirmDeleteBtn').addEventListener('click', Modal.executeDelete);
+  document.getElementById('cancelDeleteBtn').addEventListener('click', Modal.closeDelete);
+  document.getElementById('deleteModalBackdrop').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) Modal.closeDelete();
+  });
+
+  // Escape 关闭模态框
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (document.getElementById('taskModalBackdrop').classList.contains('open')) {
+        Modal.closeTask();
+      } else if (document.getElementById('deleteModalBackdrop').classList.contains('open')) {
+        Modal.closeDelete();
+      } else if (document.getElementById('timerPanel').classList.contains('open')) {
+        closeTimerPanel();
+      }
+    }
+  });
+
+  // 计时器切换按钮
+  document.getElementById('timerToggleBtn').addEventListener('click', toggleTimerPanel);
+
+  // 计时器最小化按钮
+  document.getElementById('timerMinimizeBtn').addEventListener('click', closeTimerPanel);
+
+  // 计时器遮罩点击关闭
+  document.getElementById('timerBackdrop').addEventListener('click', closeTimerPanel);
+
+  // 计时器控制按钮
+  document.getElementById('timerStartBtn').addEventListener('click', () => {
+    const taskId = Timer.getTaskId();
+    if (taskId) Timer.start(taskId);
+  });
+
+  document.getElementById('timerPauseBtn').addEventListener('click', () => {
+    Timer.togglePause();
+  });
+
+  document.getElementById('timerAbandonBtn').addEventListener('click', () => {
+    Timer.abandon();
+  });
+
+  // 移动端列标签切换
+  document.querySelectorAll('.column-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      switchMobileColumn(tab.dataset.column);
+    });
+  });
+
+  // 页面关闭前立即保存数据
+  window.addEventListener('beforeunload', () => {
+    Store.flushSave();
+  });
+
+  // 跨标签页同步：其他标签页修改数据时重新加载看板
+  window.addEventListener('storage', (e) => {
+    if (e.key === STORAGE_KEY) {
+      Store.init();
+      Kanban.renderAll();
+      renderTimerTaskList();
+      Timer.updateUI();
+    }
+  });
+
+}
+
+// ============================================================
+// 启动应用
+// ============================================================
+document.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>
