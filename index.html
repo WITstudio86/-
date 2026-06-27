@@ -71,6 +71,11 @@
   background: #4B5563;
 }
 
+[data-theme="dark"] .quadrant-section.drag-over {
+  background: rgba(96,165,250,0.12);
+  box-shadow: inset 0 0 0 2px rgba(96,165,250,0.3);
+}
+
 html, body {
   height: 100%;
   font-family: var(--font-family);
@@ -396,6 +401,12 @@ html, body {
   background: rgba(59,130,246,0.06);
   border-color: var(--color-primary);
   box-shadow: inset 0 0 0 2px rgba(59,130,246,0.2);
+}
+
+.quadrant-section.drag-over {
+  background: rgba(59,130,246,0.08);
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 2px rgba(59,130,246,0.25);
 }
 
 /* 卡片间的拖拽指示线 */
@@ -1922,6 +1933,7 @@ const Kanban = (() => {
     document.querySelectorAll('.task-card').forEach(c => {
       c.classList.remove('drop-before', 'drop-after');
     });
+    document.querySelectorAll('.quadrant-section').forEach(qs => qs.classList.remove('drag-over'));
   }
 
   function onCardDragOver(e, card, taskId) {
@@ -1949,6 +1961,14 @@ const Kanban = (() => {
     if (!taskId) return;
     const task = Store.getById(taskId);
     if (!task || Timer.isTaskLocked(taskId)) return;
+
+    // Check if dropping within a quadrant section (inter-quadrant move)
+    const targetQuadrant = card.closest('.quadrant-section')?.dataset.quadrant;
+    if (targetQuadrant && task.column === 'todo') {
+      Store.update(taskId, { quadrant: targetQuadrant });
+      renderAll();
+      return;
+    }
 
     const targetCol = card.closest('.kanban-column')?.dataset.column;
     if (!targetCol) return;
@@ -2076,6 +2096,8 @@ const Kanban = (() => {
     updateClonePosition(e.touches[0]);
     // 高亮手指下方的列
     highlightColumnUnderPoint(e.touches[0].clientX, e.touches[0].clientY);
+    // Also highlight quadrant sections
+    highlightQuadrantUnderPoint(e.touches[0].clientX, e.touches[0].clientY);
   }
 
   /** 更新克隆元素位置 */
@@ -2097,6 +2119,16 @@ const Kanban = (() => {
     }
   }
 
+  /** 高亮手指下方的象限区域 */
+  function highlightQuadrantUnderPoint(clientX, clientY) {
+    document.querySelectorAll('.quadrant-section').forEach(qs => qs.classList.remove('drag-over'));
+    const el = document.elementFromPoint(clientX, clientY);
+    if (el) {
+      const qs = el.closest('.quadrant-section');
+      if (qs) qs.classList.add('drag-over');
+    }
+  }
+
   /** 结束触控拖拽 */
   function endTouchDrag(e) {
     const clone = document.getElementById('dragClone');
@@ -2105,6 +2137,7 @@ const Kanban = (() => {
     // 清除高亮和指示线
     document.querySelectorAll('.kanban-column').forEach(c => c.classList.remove('drag-over'));
     document.querySelectorAll('.task-card').forEach(c => c.classList.remove('drop-before', 'drop-after'));
+    document.querySelectorAll('.quadrant-section').forEach(qs => qs.classList.remove('drag-over'));
 
     if (_startElement) {
       _startElement.classList.remove('dragging');
@@ -2118,6 +2151,18 @@ const Kanban = (() => {
     // 获取手指所在的列
     const touch = e.changedTouches[0];
     const el = document.elementFromPoint(touch.clientX, touch.clientY);
+
+    // Check if dropping on a quadrant section (inter-quadrant move)
+    const quadrantEl = el?.closest('.quadrant-section');
+    if (quadrantEl && task.column === 'todo') {
+      const quadrantKey = quadrantEl.dataset.quadrant;
+      if (quadrantKey) {
+        Store.update(taskId, { quadrant: quadrantKey });
+        renderAll();
+        return;
+      }
+    }
+
     const targetColEl = el?.closest('.kanban-column');
     if (!targetColEl) return;
     const targetCol = targetColEl.dataset.column;
@@ -2244,6 +2289,7 @@ const Kanban = (() => {
 
     // Bind events to quadrant cards
     bindQuadrantCardEvents();
+    setupQuadrantDropZones();
     updateColumnCount('todo');
   }
 
@@ -2281,6 +2327,35 @@ const Kanban = (() => {
       card.addEventListener('dragover', (e) => onCardDragOver(e, card, taskId));
       card.addEventListener('dragleave', (e) => onCardDragLeave(e, card));
       card.addEventListener('drop', (e) => onCardDrop(e, card, taskId));
+    });
+  }
+
+  /** 为四象限区域绑定拖放事件（用于拖到空象限） */
+  function setupQuadrantDropZones() {
+    document.querySelectorAll('.quadrant-section').forEach(section => {
+      section.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        section.classList.add('drag-over');
+      });
+      section.addEventListener('dragleave', (e) => {
+        if (!section.contains(e.relatedTarget)) {
+          section.classList.remove('drag-over');
+        }
+      });
+      section.addEventListener('drop', (e) => {
+        e.preventDefault();
+        section.classList.remove('drag-over');
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (!taskId) return;
+        const task = Store.getById(taskId);
+        if (!task || Timer.isTaskLocked(taskId)) return;
+        const targetQuadrant = section.dataset.quadrant;
+        if (targetQuadrant && task.column === 'todo') {
+          Store.update(taskId, { quadrant: targetQuadrant });
+          renderAll();
+        }
+      });
     });
   }
 
