@@ -15,7 +15,9 @@ app.get('/api/health', (_req, res) => {
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
-// 后续任务将添加 taskRoutes 和 sseHandler
+const { router: taskRoutes, setBroadcast } = require('./routes/tasks');
+app.use('/api/tasks', taskRoutes);
+// setBroadcast 将在 Task 4 接入
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
