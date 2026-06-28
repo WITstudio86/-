@@ -2436,15 +2436,51 @@ const Modal = (() => {
     });
   }
 
+  /** 更新状态切换控件 UI */
+  function updateStatusSwitcher(column, isLocked) {
+    const buttons = document.querySelectorAll('.status-switch-btn');
+    buttons.forEach(btn => {
+      const isActive = btn.dataset.column === column;
+      btn.classList.toggle('active', isActive);
+      btn.disabled = isLocked;
+    });
+  }
+
+  /** 切换任务状态 */
+  function switchColumn(newColumn) {
+    const currentColumn = document.getElementById('taskFormColumn').value;
+    if (currentColumn === newColumn) return;
+
+    // 更新隐藏字段
+    document.getElementById('taskFormColumn').value = newColumn;
+
+    if (_editingTaskId) {
+      // 编辑模式：即时保存状态变更（插入到目标列末尾）
+      const targetTasks = Store.getByColumn(newColumn);
+      Store.move(_editingTaskId, newColumn, targetTasks.length);
+      Kanban.renderAll();
+    }
+    // 新建模式：仅更新隐藏字段，保存时使用最终值
+
+    // 更新分段控件 UI
+    const isLocked = _editingTaskId ? Timer.isTaskLocked(_editingTaskId) : false;
+    updateStatusSwitcher(newColumn, isLocked);
+
+    // 根据新状态控制四象限选择器显隐
+    initQuadrantSelector(_selectedQuadrant, newColumn === 'todo');
+  }
+
   /** 打开新建任务模态框 */
   function openCreate(columnKey) {
     _editingTaskId = null;
+    _selectedQuadrant = null;
     document.getElementById('taskModalTitle').textContent = '添加任务';
     document.getElementById('taskFormId').value = '';
     document.getElementById('taskFormColumn').value = columnKey;
     document.getElementById('taskFormTitle').value = '';
     document.getElementById('taskFormDesc').value = '';
     document.getElementById('deleteTaskBtn').style.display = 'none';
+    updateStatusSwitcher(columnKey, false);
     initQuadrantSelector(null, columnKey === 'todo');
     document.getElementById('taskModalBackdrop').classList.add('open');
     document.getElementById('taskFormTitle').focus();
@@ -2464,6 +2500,8 @@ const Modal = (() => {
     // 删除按钮始终可见（若任务正被番茄钟锁定，确认时 executeDelete 会自动放弃会话）
     document.getElementById('deleteTaskBtn').style.display = '';
 
+    const isLocked = Timer.isTaskLocked(taskId);
+    updateStatusSwitcher(task.column, isLocked);
     initQuadrantSelector(task.quadrant, task.column === 'todo');
     document.getElementById('taskModalBackdrop').classList.add('open');
   }
@@ -2562,7 +2600,16 @@ const Modal = (() => {
     backdrop.dataset.taskId = '';
   }
 
-  return { setupQuadrantEvents, openCreate, openEdit, closeTask, save, confirmDelete, executeDelete, closeDelete };
+  /** 绑定状态切换按钮事件（页面初始化时调用一次） */
+  function setupStatusSwitcherEvents() {
+    document.querySelectorAll('.status-switch-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchColumn(btn.dataset.column);
+      });
+    });
+  }
+
+  return { setupQuadrantEvents, setupStatusSwitcherEvents, openCreate, openEdit, closeTask, save, confirmDelete, executeDelete, closeDelete, switchColumn, updateStatusSwitcher };
 })();
 
 // ============================================================
@@ -2623,8 +2670,9 @@ function initApp() {
     console.log(`已自动清理 ${purged} 个过期任务`);
   }
 
-  // 2. 初始化四象限选择器
+  // 2. 初始化四象限选择器及状态切换控件
   Modal.setupQuadrantEvents();
+  Modal.setupStatusSwitcherEvents();
 
   // 3. 渲染看板
   Kanban.renderAll();
