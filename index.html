@@ -1572,9 +1572,17 @@ const AuthUI = (() => {
 const Store = (() => {
   let _tasks = [];
   let _debounceTimer = null;
+  let _useServer = false;
 
-  /** 初始化：从 localStorage 加载任务数据 */
-  function init() {
+  /** 是否处于服务器模式 */
+  function isServerMode() { return _useServer; }
+
+  /** 显式启用服务器模式（由 Sync 模块在建立 SSE 连接后调用） */
+  function useServerMode() { _useServer = true; }
+
+  /** 初始化：从 localStorage 加载任务数据（未登录模式） */
+  function initLocal() {
+    _useServer = false;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       _tasks = raw ? JSON.parse(raw) : [];
@@ -1583,6 +1591,24 @@ const Store = (() => {
     }
     // 确保所有任务都有必要的字段
     _tasks = _tasks.map(normalizeTask);
+    return _tasks;
+  }
+
+  /** 切换到服务器模式并从服务器加载任务 */
+  async function loadFromServer() {
+    try {
+      const data = await ApiClient.get('/api/tasks');
+      _tasks = (data.tasks || []).map(t => normalizeTask({
+        ...t,
+        order: t.order  // API 已返回 order 字段
+      }));
+      _useServer = true;
+      return _tasks;
+    } catch (_err) {
+      console.error('从服务器加载任务失败:', _err);
+      _useServer = false;
+      return _tasks;
+    }
   }
 
   /** 容错：为缺少字段的旧数据补充默认值 */
@@ -1619,7 +1645,13 @@ const Store = (() => {
   }
 
   /** 添加任务 */
-  function add(task) {
+  async function add(task) {
+    if (_useServer) {
+      const data = await ApiClient.post('/api/tasks', task);
+      _tasks.push(normalizeTask(data.task));
+      return;
+    }
+    // 原有的 localStorage add 逻辑
     const colTasks = getByColumn(task.column);
     task.order = colTasks.length > 0
       ? Math.max(...colTasks.map(t => t.order)) + 1
@@ -1634,7 +1666,15 @@ const Store = (() => {
   }
 
   /** 更新任务字段 */
-  function update(taskId, updates) {
+  async function update(taskId, updates) {
+    if (_useServer) {
+      await ApiClient.put(`/api/tasks/${taskId}`, updates);
+      // SSE 会推送更新，这里乐观更新
+      const task = getById(taskId);
+      if (task) Object.assign(task, updates);
+      return;
+    }
+    // 原有的 localStorage update 逻辑
     const task = getById(taskId);
     if (!task) return;
     Object.assign(task, updates);
@@ -1642,7 +1682,13 @@ const Store = (() => {
   }
 
   /** 删除任务 */
-  function remove(taskId) {
+  async function remove(taskId) {
+    if (_useServer) {
+      await ApiClient.del(`/api/tasks/${taskId}`);
+      _tasks = _tasks.filter(t => t.id !== taskId);
+      return;
+    }
+    // 原有的 localStorage remove 逻辑
     _tasks = _tasks.filter(t => t.id !== taskId);
     scheduleSave();
   }
@@ -1653,7 +1699,21 @@ const Store = (() => {
    * @param {string} targetCol 目标列 key
    * @param {number} targetIndex 目标列中的插入位置
    */
-  function move(taskId, targetCol, targetIndex) {
+  async function move(taskId, targetCol, targetIndex) {
+    if (_useServer) {
+      await ApiClient.put(`/api/tasks/${taskId}/move`, { column: targetCol, sort_order: targetIndex });
+      // SSE 会推送更新，这里乐观更新
+      const task = getById(taskId);
+      if (!task) return;
+      task.column = targetCol;
+      if (targetCol === 'completed' && !task.completedAt) {
+        task.completedAt = new Date().toISOString();
+      } else if (targetCol !== 'completed') {
+        task.completedAt = null;
+      }
+      return;
+    }
+    // 原有的 localStorage move 逻辑（保持不变）
     const task = getById(taskId);
     if (!task) return;
     const sourceCol = task.column;
@@ -1690,8 +1750,9 @@ const Store = (() => {
     scheduleSave();
   }
 
-  /** 防抖写入 localStorage */
+  /** 防抖写入 localStorage（服务器模式下跳过） */
   function scheduleSave() {
+    if (_useServer) return; // 服务器模式通过 API 即时保存
     clearTimeout(_debounceTimer);
     _debounceTimer = setTimeout(() => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(_tasks));
@@ -1700,6 +1761,7 @@ const Store = (() => {
 
   /** 立即写入 localStorage（用于页面关闭前） */
   function flushSave() {
+    if (_useServer) return;
     clearTimeout(_debounceTimer);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(_tasks));
   }
@@ -1718,7 +1780,40 @@ const Store = (() => {
     return removed;
   }
 
-  return { init, getAll, getByColumn, getById, getActiveTasks, add, update, remove, move, purgeExpired, flushSave };
+  /** 应用服务器推送的变更事件（SSE） */
+  function applyServerEvent(event) {
+    if (!_useServer) return;
+    const { action, task } = event;
+
+    switch (action) {
+      case 'create':
+        if (!_tasks.find(t => t.id === task.id)) {
+          _tasks.push(normalizeTask(task));
+        }
+        break;
+      case 'update':
+      case 'move': {
+        const idx = _tasks.findIndex(t => t.id === task.id);
+        if (idx !== -1) {
+          _tasks[idx] = normalizeTask(task);
+        } else {
+          _tasks.push(normalizeTask(task));
+        }
+        break;
+      }
+      case 'delete':
+        _tasks = _tasks.filter(t => t.id !== task.id);
+        break;
+    }
+    // 触发重新渲染（由调用方负责）
+  }
+
+  return {
+    init: initLocal, useServerMode, loadFromServer, isServerMode, applyServerEvent,
+    getAll, getByColumn, getById, getActiveTasks,
+    add, update, remove, move,
+    flushSave, purgeExpired
+  };
 })();
 
 // ============================================================
