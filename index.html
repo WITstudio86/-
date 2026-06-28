@@ -3046,10 +3046,12 @@ async function onLoginSuccess() {
       } catch (_e) { /* 静默失败 */ }
       await Store.loadFromServer();
       Kanban.renderAll();
+      if (typeof renderTimerTaskList === 'function') renderTimerTaskList();
     }
   } else {
     await Store.loadFromServer();
     Kanban.renderAll();
+    if (typeof renderTimerTaskList === 'function') renderTimerTaskList();
   }
   Sync.connect();
 }
@@ -3059,6 +3061,7 @@ async function onLogout() {
   Sync.disconnect();
   Store.init();
   Kanban.renderAll();
+  if (typeof renderTimerTaskList === 'function') renderTimerTaskList();
 }
 
 // ============================================================
@@ -3092,7 +3095,7 @@ async function onLogout() {
   // 4. 渲染看板
   Kanban.renderAll();
   Kanban.setupColumnDropZones();
-  Kanban.setupDocumentTouch();
+  if (typeof Kanban.setupDocumentTouch === 'function') Kanban.setupDocumentTouch();
 
   // 5. 渲染计时面板任务列表
   renderTimerTaskList();
