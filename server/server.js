@@ -16,8 +16,11 @@ const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
 const { router: taskRoutes, setBroadcast } = require('./routes/tasks');
+const { sseHandler, broadcast } = require('./sse');
+setBroadcast(broadcast);
+
 app.use('/api/tasks', taskRoutes);
-// setBroadcast 将在 Task 4 接入
+app.get('/api/sse/events', sseHandler);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
