@@ -12,11 +12,10 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-// 路由懒加载（后续任务添加）
-let authRoutes, taskRoutes, sseHandler;
-app.use('/api/auth', (...args) => authRoutes(...args));
-app.use('/api/tasks', (...args) => taskRoutes(...args));
-app.get('/api/sse/events', (...args) => sseHandler(...args));
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
+
+// 后续任务将添加 taskRoutes 和 sseHandler
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
