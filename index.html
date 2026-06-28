@@ -1339,6 +1339,19 @@ html, body {
   </div>
 </div>
 
+<!-- ==================== 数据迁移确认模态框 ==================== -->
+<div class="modal-backdrop" id="migrationModalBackdrop">
+  <div class="modal modal-small" id="migrationModal">
+    <h3>导入本地数据</h3>
+    <p id="migrationMsg">检测到浏览器中有 <strong id="migrationCount">0</strong> 个本地任务，是否导入到账号中？</p>
+    <div id="migrationError" style="color:var(--color-danger);font-size:0.85rem;display:none;"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-cancel" id="migrationSkipBtn">跳过</button>
+      <button type="button" class="btn btn-save" id="migrationImportBtn">导入</button>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== 用户状态栏（页面顶部） ==================== -->
 <div id="userStatusBar" style="position:fixed; top:0; right:16px; z-index:500;
      padding:8px 16px; background:var(--color-surface); border-radius:0 0 var(--radius-sm) var(--radius-sm);
@@ -1563,6 +1576,59 @@ const AuthUI = (() => {
   }
 
   return { init, isLoggedIn, getUser, show, hide, logout, onTokenExpired, setupEvents };
+})();
+
+// ============================================================
+// 数据迁移模块 (MigrationUI)
+// 登录后将 localStorage 旧数据导入到服务器账号
+// ============================================================
+const MigrationUI = (() => {
+  let _tasks = [];
+
+  function show(localTasks) {
+    _tasks = localTasks;
+    document.getElementById('migrationCount').textContent = localTasks.length;
+    document.getElementById('migrationError').style.display = 'none';
+    document.getElementById('migrationModalBackdrop').classList.add('open');
+  }
+
+  function hide() {
+    document.getElementById('migrationModalBackdrop').classList.remove('open');
+  }
+
+  async function doImport() {
+    const importBtn = document.getElementById('migrationImportBtn');
+    importBtn.disabled = true;
+    importBtn.textContent = '导入中...';
+
+    try {
+      await ApiClient.post('/api/tasks/import', { tasks: _tasks });
+      localStorage.removeItem(STORAGE_KEY);
+      hide();
+      // 重新加载服务器数据并渲染
+      await Store.loadFromServer();
+      Kanban.renderAll();
+    } catch (err) {
+      document.getElementById('migrationError').textContent = err.message;
+      document.getElementById('migrationError').style.display = '';
+    } finally {
+      importBtn.disabled = false;
+      importBtn.textContent = '导入';
+    }
+  }
+
+  function skip() {
+    hide();
+    // 跳过迁移，清除本地数据避免重复提示
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  function setupEvents() {
+    document.getElementById('migrationImportBtn').addEventListener('click', doImport);
+    document.getElementById('migrationSkipBtn').addEventListener('click', skip);
+  }
+
+  return { show, hide, doImport, skip, setupEvents };
 })();
 
 // ============================================================
@@ -3074,6 +3140,7 @@ async function onLogout() {
 
   // 1. 初始化 UI 事件
   AuthUI.setupEvents();
+  MigrationUI.setupEvents();
   Modal.setupQuadrantEvents();
   Modal.setupStatusSwitcherEvents();
 
