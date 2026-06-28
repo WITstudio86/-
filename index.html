@@ -786,6 +786,59 @@ html, body {
   box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
 }
 
+/* 状态分段切换控件 */
+.status-switcher {
+  display: flex;
+  gap: 2px;
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+}
+
+.status-switch-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all var(--transition);
+  min-height: 40px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.status-switch-btn:hover {
+  color: var(--color-text);
+}
+
+.status-switch-btn.active {
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+/* 禁用状态（番茄钟锁定时） */
+.status-switch-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 深色主题适配 */
+[data-theme="dark"] .status-switcher {
+  background: #374151;
+}
+
+[data-theme="dark"] .status-switch-btn.active {
+  color: #fff;
+}
+
 /* 四象限选择器 */
 .quadrant-selector {
   display: grid;
