@@ -1458,7 +1458,10 @@ const AuthUI = (() => {
   /** 初始化：检查已有 token 是否有效 */
   async function init() {
     const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) return false;
+    if (!token) {
+      updateStatusBar();
+      return false;
+    }
 
     ApiClient.setToken(token);
     try {
@@ -1470,6 +1473,7 @@ const AuthUI = (() => {
       // Token 无效，清除
       localStorage.removeItem(TOKEN_KEY);
       ApiClient.clearToken();
+      updateStatusBar();
       return false;
     }
   }
