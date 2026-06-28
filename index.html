@@ -2602,7 +2602,7 @@ const Modal = (() => {
 
   /** 绑定状态切换按钮事件（页面初始化时调用一次） */
   function setupStatusSwitcherEvents() {
-    document.querySelectorAll('.status-switch-btn').forEach(btn => {
+    document.querySelectorAll('#statusSwitcher .status-switch-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         switchColumn(btn.dataset.column);
       });
