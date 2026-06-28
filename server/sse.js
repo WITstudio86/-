@@ -52,7 +52,7 @@ function broadcast(userId, event) {
   if (!userClients) return;
   const data = `data: ${JSON.stringify(event)}\n\n`;
   for (const res of userClients) {
-    res.write(data);
+    try { res.write(data); } catch (_) { /* 连接已关闭 */ }
   }
 }
 

@@ -21,7 +21,7 @@ function rowToTask(row) {
   };
 }
 
-/** 广播事件（延迟绑定，Task 4 创建后设置） */
+/** 广播函数，由 server.js 通过 setBroadcast() 注入 */
 let broadcast = null;
 function setBroadcast(fn) { broadcast = fn; }
 
