@@ -78,7 +78,7 @@ router.put('/:id/move', (req, res) => {
   const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!task) return res.status(404).json({ error: '任务不存在' });
 
-  const { column, sort_order } = req.body || {};
+  const { column, order: sort_order } = req.body || {};
   const newCol = column || task.column_name;
   const now = new Date().toISOString();
 
@@ -128,7 +128,7 @@ router.post('/import', (req, res) => {
         t.column || 'todo', t.quadrant || null,
         typeof t.order === 'number' ? t.order : 0,
         t.createdAt || new Date().toISOString(),
-        t.completedAt || null
+        t.completedAt || (t.column === 'completed' ? new Date().toISOString() : null)
       );
     }
     return items.length;
