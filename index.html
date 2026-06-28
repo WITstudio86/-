@@ -1817,6 +1817,59 @@ const Store = (() => {
 })();
 
 // ============================================================
+// 实时同步模块 (Sync)
+// 通过 SSE 接收服务器推送的任务变更
+// ============================================================
+const Sync = (() => {
+  let _eventSource = null;
+
+  function connect() {
+    if (!AuthUI.isLoggedIn()) return;
+
+    const token = ApiClient.getToken();
+    if (!token) return;
+
+    disconnect(); // 确保没有重复连接
+
+    _eventSource = new EventSource(`/api/sse/events?token=${encodeURIComponent(token)}`);
+
+    _eventSource.addEventListener('message', (e) => {
+      try {
+        const event = JSON.parse(e.data);
+        if (event.type === 'connected') return;
+
+        if (event.type === 'task-change') {
+          Store.applyServerEvent(event);
+          Kanban.renderAll();
+          if (typeof renderTimerTaskList === 'function') renderTimerTaskList();
+        }
+      } catch (_err) {
+        // 忽略解析错误
+      }
+    });
+
+    _eventSource.addEventListener('error', () => {
+      // EventSource 会自动重连，重连成功后全量拉取
+      setTimeout(async () => {
+        if (_eventSource && _eventSource.readyState === EventSource.OPEN) {
+          await Store.loadFromServer();
+          Kanban.renderAll();
+        }
+      }, 2000);
+    });
+  }
+
+  function disconnect() {
+    if (_eventSource) {
+      _eventSource.close();
+      _eventSource = null;
+    }
+  }
+
+  return { connect, disconnect };
+})();
+
+// ============================================================
 // 音频模块 (Beeper)
 // 使用 Web Audio API 生成提示音
 // ============================================================
@@ -2973,39 +3026,78 @@ function switchMobileColumn(colKey) {
 }
 
 // ============================================================
+// 登录 / 登出回调
+// ============================================================
+
+/** 登录成功后：检查数据迁移 → 切换到服务器模式 */
+async function onLoginSuccess() {
+  // 检查 localStorage 中是否有旧数据
+  const raw = localStorage.getItem(STORAGE_KEY);
+  const localTasks = raw ? JSON.parse(raw) : [];
+  if (localTasks.length > 0) {
+    // 弹出迁移对话框（Task 9 实现）
+    if (typeof MigrationUI !== 'undefined') {
+      MigrationUI.show(localTasks);
+    } else {
+      // 无 MigrationUI 时直接导入
+      try {
+        await ApiClient.post('/api/tasks/import', { tasks: localTasks });
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (_e) { /* 静默失败 */ }
+      await Store.loadFromServer();
+      Kanban.renderAll();
+    }
+  } else {
+    await Store.loadFromServer();
+    Kanban.renderAll();
+  }
+  Sync.connect();
+}
+
+/** 登出后：切回 localStorage 模式 */
+async function onLogout() {
+  Sync.disconnect();
+  Store.init();
+  Kanban.renderAll();
+}
+
+// ============================================================
 // 应用初始化 (App)
 // ============================================================
-async function initApp() {
+(async function initApp() {
   // 0. 初始化主题
   const savedTheme = localStorage.getItem('pomodoro-kanban-theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
 
-  // 1. 初始化数据
-  Store.init();
-
-  // 清理过期的已完成任务（7 天前）
-  const purged = Store.purgeExpired();
-  if (purged > 0) {
-    console.log(`已自动清理 ${purged} 个过期任务`);
-  }
-
-  // 2. 初始化四象限选择器及状态切换控件
+  // 1. 初始化 UI 事件
+  AuthUI.setupEvents();
   Modal.setupQuadrantEvents();
   Modal.setupStatusSwitcherEvents();
 
-  // 2.5. 初始化认证 UI
-  AuthUI.setupEvents();
-  await AuthUI.init();
+  // 2. 尝试从 token 恢复登录状态
+  const isLoggedIn = await AuthUI.init();
 
-  // 3. 渲染看板
+  if (isLoggedIn) {
+    // 已登录：从服务器加载任务
+    await Store.loadFromServer();
+    Sync.connect();
+  } else {
+    // 未登录：从 localStorage 加载
+    Store.init();
+  }
+
+  // 3. 清理过期的已完成任务（7 天前）
+  Store.purgeExpired();
+
+  // 4. 渲染看板
   Kanban.renderAll();
   Kanban.setupColumnDropZones();
   Kanban.setupDocumentTouch();
 
-  // 4. 渲染计时面板任务列表
+  // 5. 渲染计时面板任务列表
   renderTimerTaskList();
 
-  // 5. 更新计时器 UI（确保加载后状态干净）
+  // 6. 更新计时器 UI（确保加载后状态干净）
   Timer.updateUI();
 
   // ---- 事件绑定 ----
@@ -3104,33 +3196,11 @@ async function initApp() {
     Store.flushSave();
   });
 
-  // 跨标签页同步：其他标签页修改数据时重新加载看板
-  window.addEventListener('storage', (e) => {
-    if (e.key === STORAGE_KEY) {
-      Store.init();
-      Store.purgeExpired();
-      Kanban.renderAll();
-      renderTimerTaskList();
-      Timer.updateUI();
-    }
-  });
+  // 定期清理过期任务
+  _purgeIntervalId = setInterval(() => Store.purgeExpired(), 60 * 60 * 1000);
 
-  // 每 60 秒检查一次过期任务
-  clearInterval(_purgeIntervalId);
-  _purgeIntervalId = setInterval(() => {
-    const removed = Store.purgeExpired();
-    if (removed > 0) {
-      Kanban.renderAll();
-      renderTimerTaskList();
-    }
-  }, 60000);
+})();
 
-}
-
-// ============================================================
-// 启动应用
-// ============================================================
-document.addEventListener('DOMContentLoaded', initApp);
 </script>
 </body>
 </html>

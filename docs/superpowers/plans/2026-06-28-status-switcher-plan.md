@@ -19,7 +19,7 @@
 
 ---
 
-### 任务 1: 添加 HTML 结构 — 状态分段切换控件
+### Task 1: 添加 HTML 结构 — 状态分段切换控件
 
 **修改文件:** `/Users/wuzexian/codes/vibe_coding项目/番茄看板/index.html`，在编辑模态框内插入分段控件
 
@@ -48,7 +48,7 @@ git commit -m "feat: add status switcher HTML structure to edit modal"
 
 ---
 
-### 任务 2: 添加 CSS 样式 — 分段控件外观与深色主题
+### Task 2: 添加 CSS 样式 — 分段控件外观与深色主题
 
 **修改文件:** `/Users/wuzexian/codes/vibe_coding项目/番茄看板/index.html`，在 `<style>` 块的 `/* 四象限选择器 */` 注释（第 789 行）之前插入
 
@@ -118,7 +118,7 @@ git commit -m "feat: add status switcher CSS styles with dark theme support"
 
 ---
 
-### 任务 3: 实现 JS 逻辑 — 状态切换功能
+### Task 3: 实现 JS 逻辑 — 状态切换功能
 
 **修改文件:** `/Users/wuzexian/codes/vibe_coding项目/番茄看板/index.html` 中 Modal IIFE 模块（第 2348-2507 行）
 
