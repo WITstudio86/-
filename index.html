@@ -1118,6 +1118,21 @@ html, body {
 }
 
 /* 四象限视图底部添加按钮保持可见 */
+
+/* 认证相关样式 */
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-family: var(--font-family);
+}
+.btn-text:hover { text-decoration: underline; }
+
+#userStatusBar { display: none; }
+#userStatusBar.visible { display: flex !important; }
 </style>
 </head>
 <body>
@@ -1299,6 +1314,39 @@ html, body {
   </div>
 </div>
 
+<!-- ==================== 认证模态框 ==================== -->
+<div class="modal-backdrop" id="authModalBackdrop">
+  <div class="modal" id="authModal">
+    <h2 id="authModalTitle">登录</h2>
+    <form id="authForm" autocomplete="off">
+      <div class="form-group">
+        <label for="authUsername">用户名</label>
+        <input type="text" id="authUsername" required minlength="1" placeholder="请输入用户名">
+      </div>
+      <div class="form-group">
+        <label for="authPassword">密码</label>
+        <input type="password" id="authPassword" required minlength="6" placeholder="请输入密码（至少 6 位）">
+      </div>
+      <div id="authError" style="color:var(--color-danger);font-size:0.85rem;display:none;"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-cancel" id="authCancelBtn">取消</button>
+        <button type="submit" class="btn btn-save" id="authSubmitBtn">登录</button>
+      </div>
+      <div style="text-align:center;margin-top:8px;">
+        <button type="button" class="btn-text" id="authToggleMode">没有账号？去注册</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== 用户状态栏（页面顶部） ==================== -->
+<div id="userStatusBar" style="position:fixed; top:0; right:16px; z-index:500;
+     padding:8px 16px; background:var(--color-surface); border-radius:0 0 var(--radius-sm) var(--radius-sm);
+     box-shadow:var(--shadow); font-size:0.85rem; display:none; align-items:center; gap:12px;">
+  <span id="userStatusName"></span>
+  <button type="button" class="btn-text" id="userLogoutBtn" style="color:var(--color-danger);">登出</button>
+</div>
+
 <script>
 // ============================================================
 // 常量定义
@@ -1382,6 +1430,139 @@ const ApiClient = (() => {
     put:    (path, body)      => request('PUT', path, body),
     del:    (path)            => request('DELETE', path),
   };
+})();
+
+// ============================================================
+// 认证 UI 模块 (AuthUI)
+// 登录/注册模态框、Token 管理、用户状态显示
+// ============================================================
+const AuthUI = (() => {
+  const TOKEN_KEY = 'kanban-token';
+  let _user = null;     // { id, username } | null
+  let _isLoginMode = true;
+
+  /** 初始化：检查已有 token 是否有效 */
+  async function init() {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return false;
+
+    ApiClient.setToken(token);
+    try {
+      const data = await ApiClient.get('/api/auth/me');
+      _user = data.user;
+      updateStatusBar();
+      return true;
+    } catch (_e) {
+      // Token 无效，清除
+      localStorage.removeItem(TOKEN_KEY);
+      ApiClient.clearToken();
+      return false;
+    }
+  }
+
+  function isLoggedIn() { return _user !== null; }
+  function getUser() { return _user; }
+
+  /** 显示登录/注册模态框 */
+  function show() {
+    _isLoginMode = true;
+    document.getElementById('authModalTitle').textContent = '登录';
+    document.getElementById('authSubmitBtn').textContent = '登录';
+    document.getElementById('authToggleMode').textContent = '没有账号？去注册';
+    document.getElementById('authUsername').value = '';
+    document.getElementById('authPassword').value = '';
+    document.getElementById('authError').style.display = 'none';
+    document.getElementById('authModalBackdrop').classList.add('open');
+    document.getElementById('authUsername').focus();
+  }
+
+  function hide() {
+    document.getElementById('authModalBackdrop').classList.remove('open');
+  }
+
+  /** 提交登录/注册 */
+  async function submit() {
+    const username = document.getElementById('authUsername').value.trim();
+    const password = document.getElementById('authPassword').value;
+    const errorEl = document.getElementById('authError');
+
+    if (!username || !password) {
+      errorEl.textContent = '用户名和密码不能为空';
+      errorEl.style.display = '';
+      return;
+    }
+    if (password.length < 6) {
+      errorEl.textContent = '密码至少需要 6 个字符';
+      errorEl.style.display = '';
+      return;
+    }
+
+    const path = _isLoginMode ? '/api/auth/login' : '/api/auth/register';
+    try {
+      const data = await ApiClient.post(path, { username, password });
+      ApiClient.setToken(data.token);
+      localStorage.setItem(TOKEN_KEY, data.token);
+      _user = data.user;
+      updateStatusBar();
+      hide();
+
+      // 触发登录后回调（数据迁移与同步初始化）
+      if (typeof onLoginSuccess === 'function') onLoginSuccess();
+    } catch (err) {
+      errorEl.textContent = err.message;
+      errorEl.style.display = '';
+    }
+  }
+
+  /** 登出 */
+  function logout() {
+    _user = null;
+    localStorage.removeItem(TOKEN_KEY);
+    ApiClient.clearToken();
+    updateStatusBar();
+    // 登出后触发回调
+    if (typeof onLogout === 'function') onLogout();
+  }
+
+  /** Token 过期处理 */
+  function onTokenExpired() {
+    _user = null;
+    updateStatusBar();
+    if (typeof onLogout === 'function') onLogout();
+  }
+
+  /** 切换登录/注册模式 */
+  function toggleMode() {
+    _isLoginMode = !_isLoginMode;
+    document.getElementById('authModalTitle').textContent = _isLoginMode ? '登录' : '注册';
+    document.getElementById('authSubmitBtn').textContent = _isLoginMode ? '登录' : '注册';
+    document.getElementById('authToggleMode').textContent = _isLoginMode ? '没有账号？去注册' : '已有账号？去登录';
+    document.getElementById('authError').style.display = 'none';
+  }
+
+  function updateStatusBar() {
+    const bar = document.getElementById('userStatusBar');
+    const nameEl = document.getElementById('userStatusName');
+    if (_user) {
+      nameEl.textContent = _user.username;
+      bar.style.display = 'flex';
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  /** 绑定事件 */
+  function setupEvents() {
+    document.getElementById('authForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      submit();
+    });
+    document.getElementById('authCancelBtn').addEventListener('click', hide);
+    document.getElementById('authToggleMode').addEventListener('click', toggleMode);
+    document.getElementById('userLogoutBtn').addEventListener('click', logout);
+  }
+
+  return { init, isLoggedIn, getUser, show, hide, logout, onTokenExpired, setupEvents };
 })();
 
 // ============================================================
@@ -2699,7 +2880,7 @@ function switchMobileColumn(colKey) {
 // ============================================================
 // 应用初始化 (App)
 // ============================================================
-function initApp() {
+async function initApp() {
   // 0. 初始化主题
   const savedTheme = localStorage.getItem('pomodoro-kanban-theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
@@ -2716,6 +2897,10 @@ function initApp() {
   // 2. 初始化四象限选择器及状态切换控件
   Modal.setupQuadrantEvents();
   Modal.setupStatusSwitcherEvents();
+
+  // 2.5. 初始化认证 UI
+  AuthUI.setupEvents();
+  await AuthUI.init();
 
   // 3. 渲染看板
   Kanban.renderAll();
@@ -2768,6 +2953,8 @@ function initApp() {
         Modal.closeTask();
       } else if (document.getElementById('deleteModalBackdrop').classList.contains('open')) {
         Modal.closeDelete();
+      } else if (document.getElementById('authModalBackdrop').classList.contains('open')) {
+        AuthUI.hide();
       } else if (document.getElementById('timerPanel').classList.contains('open')) {
         closeTimerPanel();
       }
