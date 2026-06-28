@@ -1342,6 +1342,49 @@ let _purgeIntervalId = null;
 const TOUCH_MOVE_THRESHOLD = 10; // 触控移动阈值（超过此值取消长按）
 
 // ============================================================
+// API 客户端 (ApiClient)
+// 封装 fetch 请求，自动附加 JWT 认证头部
+// ============================================================
+const ApiClient = (() => {
+  const BASE = '';  // 同源部署
+  let _token = null;
+
+  function setToken(t) { _token = t; }
+  function clearToken() { _token = null; }
+  function getToken() { return _token; }
+
+  async function request(method, path, body) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (_token) headers['Authorization'] = `Bearer ${_token}`;
+
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+
+    const res = await fetch(BASE + path, opts);
+    const data = await res.json();
+
+    if (!res.ok) {
+      // Token 过期或无效 → 触发登出
+      if (res.status === 401) {
+        clearToken();
+        localStorage.removeItem('kanban-token');
+        if (typeof AuthUI !== 'undefined') AuthUI.onTokenExpired();
+      }
+      throw new Error(data.error || '请求失败');
+    }
+    return data;
+  }
+
+  return {
+    setToken, clearToken, getToken,
+    get:    (path)            => request('GET', path),
+    post:   (path, body)      => request('POST', path, body),
+    put:    (path, body)      => request('PUT', path, body),
+    del:    (path)            => request('DELETE', path),
+  };
+})();
+
+// ============================================================
 // 数据存储模块 (Store)
 // 负责 localStorage 读写与内存中任务数组的管理
 // ============================================================
