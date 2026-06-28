@@ -1145,6 +1145,7 @@ html, body {
         <img src="logo.png" alt="Logo" class="header-logo" onerror="this.style.display='none'">
         番茄看板
       </h1>
+    <button id="headerLoginBtn" class="btn-text" style="display:none;">登录</button>
     <button class="theme-toggle-btn" id="themeToggleBtn" title="切换主题" aria-label="切换深色/浅色主题">
       <span class="theme-icon-light">☀️</span>
       <span class="theme-icon-dark">🌙</span>
@@ -1556,11 +1557,14 @@ const AuthUI = (() => {
   function updateStatusBar() {
     const bar = document.getElementById('userStatusBar');
     const nameEl = document.getElementById('userStatusName');
+    const loginBtn = document.getElementById('headerLoginBtn');
     if (_user) {
       nameEl.textContent = _user.username;
       bar.style.display = 'flex';
+      if (loginBtn) loginBtn.style.display = 'none';
     } else {
       bar.style.display = 'none';
+      if (loginBtn) loginBtn.style.display = '';
     }
   }
 
@@ -1573,6 +1577,7 @@ const AuthUI = (() => {
     document.getElementById('authCancelBtn').addEventListener('click', hide);
     document.getElementById('authToggleMode').addEventListener('click', toggleMode);
     document.getElementById('userLogoutBtn').addEventListener('click', logout);
+    document.getElementById('headerLoginBtn').addEventListener('click', show);
   }
 
   return { init, isLoggedIn, getUser, show, hide, logout, onTokenExpired, setupEvents };
@@ -1619,8 +1624,7 @@ const MigrationUI = (() => {
 
   function skip() {
     hide();
-    // 跳过迁移，清除本地数据避免重复提示
-    localStorage.removeItem(STORAGE_KEY);
+    // 跳过迁移，保留本地数据不动
   }
 
   function setupEvents() {
@@ -3259,6 +3263,15 @@ async function onLogout() {
     tab.addEventListener('click', () => {
       switchMobileColumn(tab.dataset.column);
     });
+  });
+
+  // 跨标签页 localStorage 同步（仅在非服务器模式下生效）
+  window.addEventListener('storage', (e) => {
+    if (e.key === STORAGE_KEY && !Store.isServerMode()) {
+      Store.init();
+      Kanban.renderAll();
+      if (typeof renderTimerTaskList === 'function') renderTimerTaskList();
+    }
   });
 
   // 页面关闭前立即保存数据
